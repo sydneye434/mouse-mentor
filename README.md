@@ -1,6 +1,6 @@
 # Mouse Mentor
 
-A web app for planning Disney trips via an AI chat assistant.
+A web app for planning Disney trips via an AI chat assistant. Users go through a short **get-to-know-you** questionnaire (destination, dates, party, where they want to stay, first visit or returning, priorities, pace, dietary notes) or skip it, then chat with the assistant; trip details are sent with each message for personalized replies.
 
 ## Prerequisites
 
@@ -50,7 +50,8 @@ Leave this terminal running. You should see something like: `Local: http://local
 
 1. Open your browser (Chrome, Firefox, Safari, or Edge).
 2. Go to: **http://localhost:5173**
-3. You should see the Mouse Mentor chat interface. Type a message and click **Send** to talk to the assistant (the backend returns a placeholder reply until you add an LLM).
+3. You’ll see the **get-to-know-you** flow first: answer a few questions (destination, dates, who’s going, where you want to stay, first visit or returning, vibe, and anything else). You can choose **Skip for now** to go straight to chat, or complete the steps and click **Start planning**.
+4. After that, the main **chat** view appears. Type a message and click **Send** to talk to the assistant (the backend returns a placeholder reply until you add an LLM). Your trip details are sent with each message so responses can be personalized.
 
 **URLs at a glance:**
 
@@ -81,7 +82,7 @@ Replace the URL as needed, then restart the frontend (`npm run dev`).
 ## Backend API
 
 - **GET** `/health` — health check
-- **POST** `/chat` — send messages and get an assistant reply (body: `{ "messages": [{ "role": "user", "text": "..." }] }`)
+- **POST** `/chat` — send messages and get an assistant reply. Body: `{ "messages": [{ "role": "user", "text": "..." }], "trip_info": { ... } }`. `trip_info` is optional and can include destination, dates, party size, on-site/off-site stay, resort tier, first visit, priorities, trip pace, dietary notes, etc. (see `TripInfo` in `backend/main.py`).
 
 The `/chat` endpoint currently returns a placeholder reply; you can add an LLM or other logic in `backend/main.py`.
 
@@ -91,7 +92,7 @@ GitHub Actions runs on push/PR to `main` (or `master`) and verifies:
 
 - **Formatting** — Prettier (frontend), Black (backend)
 - **Linting** — ESLint (frontend), Ruff (backend)
-- **Unit tests** — Vitest with coverage (frontend), pytest with coverage (backend); coverage must meet thresholds
+- **Unit tests** — Vitest with coverage (frontend), pytest with coverage (backend). Coverage must meet thresholds (frontend: see `vite.config.js`; backend: 50%).
 - **Security** — `npm audit` (frontend), Bandit + pip-audit (backend)
 
 Run the same checks locally:

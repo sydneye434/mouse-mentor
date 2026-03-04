@@ -1,0 +1,490 @@
+import { useState, useEffect } from 'react'
+import MickeyIcon from '../MickeyIcon.jsx'
+import {
+  DESTINATIONS,
+  CHILD_AGE_RANGE_OPTIONS,
+  PRIORITY_OPTIONS,
+  STAY_OPTIONS,
+  RESORT_TIER_OPTIONS,
+  TRIP_PACE_OPTIONS,
+  SPECIAL_OCCASION_OPTIONS,
+} from '../tripInfo'
+import './GetToKnowYou.css'
+
+const today = () => new Date().toISOString().slice(0, 10)
+
+const STEPS = [
+  { id: 'destination', title: "Where's the magic?" },
+  { id: 'dates', title: 'When are you going?' },
+  { id: 'crew', title: "Who's in your crew?" },
+  { id: 'stay', title: 'Where do you want to stay?' },
+  { id: 'first-time', title: 'First time or coming back?' },
+  { id: 'vibe', title: "What's your vibe?" },
+  { id: 'extra', title: 'Anything else we should know?' },
+  { id: 'done', title: "You're all set!" },
+]
+
+const TOTAL_STEPS = STEPS.length
+
+export default function GetToKnowYou({ initialTrip, onSubmit, onSkip }) {
+  const [step, setStep] = useState(1)
+  const [trip, setTrip] = useState(() => ({
+    destination: initialTrip?.destination ?? 'disney-world',
+    arrivalDate: initialTrip?.arrivalDate ?? '',
+    departureDate: initialTrip?.departureDate ?? '',
+    numberOfAdults: initialTrip?.numberOfAdults ?? 1,
+    numberOfChildren: initialTrip?.numberOfChildren ?? 0,
+    childAges: initialTrip?.childAges ?? [],
+    datesFlexible: initialTrip?.datesFlexible ?? false,
+    onSite: initialTrip?.onSite ?? null,
+    resortTier: initialTrip?.resortTier ?? '',
+    firstVisit: initialTrip?.firstVisit ?? null,
+    specialOccasion: initialTrip?.specialOccasion ?? '',
+    priorities: initialTrip?.priorities ?? [],
+    tripPace: initialTrip?.tripPace ?? '',
+    dietaryNotes: initialTrip?.dietaryNotes ?? '',
+    ...initialTrip,
+  }))
+
+  const numChildren = Math.max(0, Number(trip.numberOfChildren) || 0)
+
+  useEffect(() => {
+    if (numChildren > trip.childAges.length) {
+      setTrip((t) => ({
+        ...t,
+        childAges: [
+          ...t.childAges,
+          ...Array(numChildren - t.childAges.length).fill(''),
+        ],
+      }))
+    } else if (numChildren < trip.childAges.length) {
+      setTrip((t) => ({ ...t, childAges: t.childAges.slice(0, numChildren) }))
+    }
+  }, [numChildren, trip.childAges.length])
+
+  function update(fields) {
+    setTrip((t) => ({ ...t, ...fields }))
+  }
+
+  function next() {
+    if (step >= TOTAL_STEPS - 1) {
+      buildAndSubmit()
+      return
+    }
+    setStep((s) => s + 1)
+  }
+
+  function back() {
+    setStep((s) => Math.max(1, s - 1))
+  }
+
+  function buildAndSubmit() {
+    const arrival = trip.datesFlexible ? null : trip.arrivalDate || null
+    const departure = trip.datesFlexible ? null : trip.departureDate || null
+    let lengthOfStayDays = null
+    if (arrival && departure) {
+      const a = new Date(arrival)
+      const b = new Date(departure)
+      lengthOfStayDays =
+        Math.max(0, Math.ceil((b - a) / (1000 * 60 * 60 * 24))) + 1
+    }
+    const ages = trip.childAges
+      .slice(0, numChildren)
+      .filter((a) => a !== undefined && a !== '')
+    onSubmit({
+      ...trip,
+      arrivalDate: arrival,
+      departureDate: departure,
+      lengthOfStayDays,
+      childAges: ages.length ? ages : undefined,
+      resortTier: trip.resortTier || undefined,
+      specialOccasion: trip.specialOccasion || undefined,
+      tripPace: trip.tripPace || undefined,
+      dietaryNotes: trip.dietaryNotes?.trim() || undefined,
+      onSite: trip.onSite,
+    })
+  }
+
+  const isFirst = step === 1
+  const isDone = step === TOTAL_STEPS
+
+  return (
+    <div className="get-to-know-you">
+      <div className="get-to-know-you__progress">
+        {STEPS.slice(0, -1).map((s, i) => (
+          <button
+            key={s.id}
+            type="button"
+            className={`get-to-know-you__dot ${i + 1 <= step ? 'get-to-know-you__dot--active' : ''}`}
+            onClick={() => setStep(i + 1)}
+            aria-label={`Go to step ${i + 1}: ${s.title}`}
+            title={s.title}
+          />
+        ))}
+      </div>
+      <p className="get-to-know-you__step-label">
+        Step {step} of {TOTAL_STEPS - 1}
+      </p>
+
+      <div className="get-to-know-you__card">
+        {step === 1 && (
+          <>
+            <h2 className="get-to-know-you__question">
+              Where&apos;s the magic calling you?
+            </h2>
+            <p className="get-to-know-you__hint">
+              Pick your destination — we&apos;ll tailor everything to it.
+            </p>
+            <select
+              className="get-to-know-you__select"
+              value={trip.destination}
+              onChange={(e) => update({ destination: e.target.value })}
+            >
+              {DESTINATIONS.map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <h2 className="get-to-know-you__question">When are you going?</h2>
+            <p className="get-to-know-you__hint">
+              No dates yet? No problem — we can still help.
+            </p>
+            <label className="get-to-know-you__checkbox">
+              <input
+                type="checkbox"
+                checked={trip.datesFlexible}
+                onChange={(e) => update({ datesFlexible: e.target.checked })}
+              />
+              My dates are flexible
+            </label>
+            {!trip.datesFlexible && (
+              <div className="get-to-know-you__row">
+                <label className="get-to-know-you__label">
+                  Arrival
+                  <input
+                    type="date"
+                    className="get-to-know-you__input"
+                    value={trip.arrivalDate}
+                    onChange={(e) => update({ arrivalDate: e.target.value })}
+                    min={today()}
+                  />
+                </label>
+                <label className="get-to-know-you__label">
+                  Departure
+                  <input
+                    type="date"
+                    className="get-to-know-you__input"
+                    value={trip.departureDate}
+                    onChange={(e) => update({ departureDate: e.target.value })}
+                    min={trip.arrivalDate || today()}
+                  />
+                </label>
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <h2 className="get-to-know-you__question">
+              Who&apos;s in your crew?
+            </h2>
+            <p className="get-to-know-you__hint">
+              We&apos;ll suggest rides and experiences that fit your group.
+            </p>
+            <div className="get-to-know-you__row">
+              <label className="get-to-know-you__label">
+                Adults
+                <input
+                  type="number"
+                  className="get-to-know-you__input get-to-know-you__input--narrow"
+                  min={1}
+                  max={20}
+                  value={trip.numberOfAdults}
+                  onChange={(e) =>
+                    update({ numberOfAdults: Number(e.target.value) || 1 })
+                  }
+                />
+              </label>
+              <label className="get-to-know-you__label">
+                Children
+                <input
+                  type="number"
+                  className="get-to-know-you__input get-to-know-you__input--narrow"
+                  min={0}
+                  max={20}
+                  value={trip.numberOfChildren}
+                  onChange={(e) =>
+                    update({ numberOfChildren: Number(e.target.value) || 0 })
+                  }
+                />
+              </label>
+            </div>
+            {numChildren > 0 && (
+              <div className="get-to-know-you__child-ages">
+                <span className="get-to-know-you__label">Ages of children</span>
+                <div className="get-to-know-you__child-ages-inputs">
+                  {trip.childAges.slice(0, numChildren).map((ageRange, i) => (
+                    <label key={i} className="get-to-know-you__label">
+                      Child {i + 1}
+                      <select
+                        className="get-to-know-you__select get-to-know-you__select--inline"
+                        value={ageRange === '' ? '' : ageRange}
+                        onChange={(e) => {
+                          const next = [...trip.childAges]
+                          next[i] = e.target.value
+                          update({ childAges: next })
+                        }}
+                      >
+                        <option value="">Select…</option>
+                        {CHILD_AGE_RANGE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <h2 className="get-to-know-you__question">
+              Where do you want to stay?
+            </h2>
+            <p className="get-to-know-you__hint">
+              On-site perks are real — we&apos;ll factor this into your plan.
+            </p>
+            <div className="get-to-know-you__choices">
+              {STAY_OPTIONS.map((o) => {
+                const isSelected =
+                  (o.value === 'on-site' && trip.onSite === true) ||
+                  (o.value === 'off-site' && trip.onSite === false) ||
+                  (o.value === 'unsure' &&
+                    (trip.onSite === null || trip.onSite === undefined))
+                return (
+                  <label
+                    key={o.value}
+                    className={`get-to-know-you__choice ${
+                      isSelected ? 'get-to-know-you__choice--selected' : ''
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="stay"
+                      value={o.value}
+                      checked={isSelected}
+                      onChange={() =>
+                        update({
+                          onSite:
+                            o.value === 'on-site'
+                              ? true
+                              : o.value === 'off-site'
+                                ? false
+                                : null,
+                          resortTier:
+                            o.value === 'on-site' ? trip.resortTier : '',
+                        })
+                      }
+                    />
+                    {o.label}
+                  </label>
+                )
+              })}
+            </div>
+            {trip.onSite === true && (
+              <label className="get-to-know-you__label">
+                Resort tier
+                <select
+                  className="get-to-know-you__select"
+                  value={trip.resortTier}
+                  onChange={(e) => update({ resortTier: e.target.value })}
+                >
+                  {RESORT_TIER_OPTIONS.map((o) => (
+                    <option key={o.value || 'unsure'} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </>
+        )}
+
+        {step === 5 && (
+          <>
+            <h2 className="get-to-know-you__question">
+              First time or coming back?
+            </h2>
+            <p className="get-to-know-you__hint">
+              We love first-timers and returning friends alike.
+            </p>
+            <div className="get-to-know-you__choices">
+              <label
+                className={`get-to-know-you__choice ${
+                  trip.firstVisit === true
+                    ? 'get-to-know-you__choice--selected'
+                    : ''
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="first"
+                  checked={trip.firstVisit === true}
+                  onChange={() => update({ firstVisit: true })}
+                />
+                First time!
+              </label>
+              <label
+                className={`get-to-know-you__choice ${
+                  trip.firstVisit === false
+                    ? 'get-to-know-you__choice--selected'
+                    : ''
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="first"
+                  checked={trip.firstVisit === false}
+                  onChange={() => update({ firstVisit: false })}
+                />
+                I&apos;ve been before
+              </label>
+            </div>
+            <label className="get-to-know-you__label">
+              Celebrating something?
+              <select
+                className="get-to-know-you__select"
+                value={trip.specialOccasion}
+                onChange={(e) => update({ specialOccasion: e.target.value })}
+              >
+                {SPECIAL_OCCASION_OPTIONS.map((o) => (
+                  <option key={o.value || 'none'} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
+
+        {step === 6 && (
+          <>
+            <h2 className="get-to-know-you__question">
+              What&apos;s your vibe?
+            </h2>
+            <p className="get-to-know-you__hint">
+              Pick what matters most — we&apos;ll prioritize accordingly.
+            </p>
+            <div className="get-to-know-you__priorities">
+              {PRIORITY_OPTIONS.map((o) => (
+                <label key={o.value} className="get-to-know-you__checkbox">
+                  <input
+                    type="checkbox"
+                    checked={trip.priorities.includes(o.value)}
+                    onChange={() => {
+                      const next = trip.priorities.includes(o.value)
+                        ? trip.priorities.filter((p) => p !== o.value)
+                        : [...trip.priorities, o.value]
+                      update({ priorities: next })
+                    }}
+                  />
+                  {o.label}
+                </label>
+              ))}
+            </div>
+            <label className="get-to-know-you__label">
+              Trip pace
+              <select
+                className="get-to-know-you__select"
+                value={trip.tripPace}
+                onChange={(e) => update({ tripPace: e.target.value })}
+              >
+                <option value="">Select…</option>
+                {TRIP_PACE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
+
+        {step === 7 && (
+          <>
+            <h2 className="get-to-know-you__question">
+              Anything else we should know?
+            </h2>
+            <p className="get-to-know-you__hint">
+              Dietary needs, must-dos, or just a note — we&apos;ve got you.
+            </p>
+            <label className="get-to-know-you__label">
+              Dietary restrictions or preferences
+              <textarea
+                className="get-to-know-you__textarea"
+                placeholder="e.g. vegetarian, nut allergy, gluten-free…"
+                value={trip.dietaryNotes}
+                onChange={(e) => update({ dietaryNotes: e.target.value })}
+                rows={3}
+              />
+            </label>
+          </>
+        )}
+
+        {step === 8 && (
+          <>
+            <div className="get-to-know-you__done-icon">
+              <MickeyIcon size={48} />
+            </div>
+            <h2 className="get-to-know-you__question">You&apos;re all set!</h2>
+            <p className="get-to-know-you__hint">
+              We&apos;ve got the scoop on your trip. Ready to plan something
+              amazing?
+            </p>
+          </>
+        )}
+
+        <div className="get-to-know-you__actions">
+          {!isFirst && !isDone && (
+            <button
+              type="button"
+              className="get-to-know-you__btn get-to-know-you__btn--secondary"
+              onClick={back}
+            >
+              Back
+            </button>
+          )}
+          <div className="get-to-know-you__actions-spacer" />
+          <button
+            type="button"
+            className="get-to-know-you__btn get-to-know-you__btn--primary"
+            onClick={isDone ? buildAndSubmit : next}
+          >
+            {isDone ? 'Start planning' : 'Next'}
+          </button>
+        </div>
+      </div>
+
+      {step === 1 && onSkip && (
+        <button
+          type="button"
+          className="get-to-know-you__skip"
+          onClick={onSkip}
+        >
+          Skip for now — I&apos;ll just chat
+        </button>
+      )}
+    </div>
+  )
+}

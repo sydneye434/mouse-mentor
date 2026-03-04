@@ -21,15 +21,19 @@ describe('App', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows empty state when no messages', () => {
+  it('shows empty state when no messages', async () => {
+    const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: /skip for now/i }))
     expect(
       screen.getByText(/ask anything about planning your disney trip/i)
     ).toBeInTheDocument()
   })
 
-  it('has a send button and input', () => {
+  it('has a send button and input', async () => {
+    const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: /skip for now/i }))
     expect(
       screen.getByPlaceholderText(/ask about your disney trip/i)
     ).toBeInTheDocument()
@@ -49,6 +53,7 @@ describe('App', () => {
       )
     )
     render(<App />)
+    await user.click(screen.getByRole('button', { name: /skip for now/i }))
     const input = screen.getByPlaceholderText(/ask about your disney trip/i)
     await user.type(input, 'When is the best time to visit?')
     await user.click(screen.getByRole('button', { name: /send/i }))

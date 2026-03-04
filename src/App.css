@@ -170,6 +170,25 @@
   opacity: 0.85;
 }
 
+.trip-skip {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  background: none;
+  border: none;
+  color: var(--castle-light);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.trip-skip:hover {
+  color: var(--gold-soft);
+}
+
+.empty-state--minimal {
+  min-height: 6rem;
+}
+
 .message {
   margin-bottom: 0.875rem;
   padding: 0.875rem 1rem;

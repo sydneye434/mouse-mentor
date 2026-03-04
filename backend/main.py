@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import List, Optional
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -18,8 +22,29 @@ class ChatMessage(BaseModel):
     text: str
 
 
+class TripInfo(BaseModel):
+    """Basic trip details provided by the user."""
+
+    destination: str
+    arrival_date: Optional[str] = None
+    departure_date: Optional[str] = None
+    number_of_adults: int = 1
+    number_of_children: int = 0
+    child_ages: Optional[List[str]] = None
+    length_of_stay_days: Optional[int] = None
+    dates_flexible: bool = False
+    priorities: Optional[List[str]] = None
+    on_site: Optional[bool] = None  # True = staying at Disney resort
+    resort_tier: Optional[str] = None  # e.g. "value", "moderate", "deluxe"
+    first_visit: Optional[bool] = None
+    special_occasion: Optional[str] = None  # e.g. "birthday", "anniversary"
+    trip_pace: Optional[str] = None  # e.g. "relaxed", "balanced", "go-go-go"
+    dietary_notes: Optional[str] = None
+
+
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
+    trip_info: Optional[TripInfo] = None
 
 
 class ChatResponse(BaseModel):
@@ -33,10 +58,62 @@ def health():
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    # Placeholder: echo back until you add an LLM
     last = request.messages[-1] if request.messages else None
+    trip = request.trip_info
+
     if last and last.text.strip():
-        reply = f"(Placeholder) You said: {last.text}"
+        if trip:
+            dest = (
+                "Walt Disney World"
+                if trip.destination == "disney-world"
+                else "Disneyland"
+            )
+            party = trip.number_of_adults + trip.number_of_children
+            days = trip.length_of_stay_days or (
+                _days_between(trip.arrival_date, trip.departure_date)
+                if trip.arrival_date and trip.departure_date
+                else None
+            )
+            context = f"Your trip: {dest}, {party} guest(s)"
+            if trip.child_ages:
+                context += f", kids age ranges: {', '.join(trip.child_ages)}"
+            if days:
+                context += f", {days} day(s)"
+            if trip.dates_flexible:
+                context += ", flexible dates"
+            elif trip.arrival_date:
+                context += f", arriving {trip.arrival_date}"
+            if trip.priorities:
+                context += f", priorities: {', '.join(trip.priorities)}"
+            if trip.on_site is not None:
+                context += ", on-site" if trip.on_site else ", off-site"
+            if trip.resort_tier:
+                context += f", {trip.resort_tier} resort"
+            if trip.first_visit is not None:
+                context += ", first visit" if trip.first_visit else ", returning"
+            if trip.special_occasion:
+                context += f", celebrating {trip.special_occasion}"
+            if trip.trip_pace:
+                context += f", pace: {trip.trip_pace}"
+            if trip.dietary_notes:
+                context += f", dietary: {trip.dietary_notes}"
+            context += ". "
+            reply = f"{context}You asked: {last.text} I'll use this to personalize tips once we add an assistant."
+        else:
+            reply = f"(Placeholder) You said: {last.text}"
     else:
-        reply = "Ask me anything about planning your Disney trip—parks, hotels, dining, or dates."
+        reply = "Share your trip details above, then ask about parks, hotels, dining, or dates."
     return ChatResponse(reply=reply)
+
+
+def _days_between(start: Optional[str], end: Optional[str]) -> Optional[int]:
+    if not start or not end:
+        return None
+    try:
+        from datetime import datetime
+
+        a = datetime.strptime(start, "%Y-%m-%d")
+        b = datetime.strptime(end, "%Y-%m-%d")
+        return max(0, (b - a).days) + 1
+    except (ValueError, TypeError):
+        return None

@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import MickeyIcon from './MickeyIcon.jsx'
+import GetToKnowYou from './components/GetToKnowYou.jsx'
+import TripSummary from './components/TripSummary.jsx'
+import { toTripInfoPayload } from './tripInfo.js'
 import './App.css'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -8,6 +11,13 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [tripInfo, setTripInfo] = useState(null)
+  const [showTripForm, setShowTripForm] = useState(true)
+
+  function handleTripSubmit(trip) {
+    setTripInfo(trip)
+    setShowTripForm(false)
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -22,14 +32,18 @@ export default function App() {
     setMessages((prev) => [...prev, userMessage])
     setLoading(true)
     try {
+      const body = {
+        messages: [...messages, { role: 'user', text: userText }].map(
+          ({ role, text }) => ({ role, text })
+        ),
+      }
+      if (tripInfo) {
+        body.trip_info = toTripInfoPayload(tripInfo)
+      }
       const res = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, { role: 'user', text: userText }].map(
-            ({ role, text }) => ({ role, text })
-          ),
-        }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error(res.statusText)
       const data = await res.json()
@@ -182,13 +196,34 @@ export default function App() {
       </header>
 
       <main className="chat-main">
+        {showTripForm && (
+          <GetToKnowYou
+            initialTrip={tripInfo}
+            onSubmit={handleTripSubmit}
+            onSkip={() => setShowTripForm(false)}
+          />
+        )}
+
+        {tripInfo && !showTripForm && (
+          <TripSummary trip={tripInfo} onEdit={() => setShowTripForm(true)} />
+        )}
+
         <div className="messages">
-          {messages.length === 0 && (
+          {messages.length === 0 && !showTripForm && (
             <div className="empty-state">
               <MickeyIcon className="empty-state-icon" size={44} />
               <p>Ask anything about planning your Disney trip.</p>
               <p className="empty-hint">
-                Dates, parks, hotels, dining—I’m here to help.
+                Parks, hotels, dining, or best times to visit—I’ll use your trip
+                details to personalize advice.
+              </p>
+            </div>
+          )}
+          {messages.length === 0 && showTripForm && (
+            <div className="empty-state empty-state--minimal">
+              <p className="empty-hint">
+                Answer a few quick questions so we can personalize your plan —
+                or skip to start chatting.
               </p>
             </div>
           )}
@@ -202,33 +237,35 @@ export default function App() {
           ))}
         </div>
 
-        <form className="input-area" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            className="input"
-            placeholder="Ask about your Disney trip…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            autoComplete="off"
-            disabled={loading}
-          />
-          <button
-            type="submit"
-            className="send-btn"
-            aria-label="Send"
-            disabled={loading}
-          >
-            {loading ? (
-              <span className="loading-dots" aria-hidden>
-                <span />
-                <span />
-                <span />
-              </span>
-            ) : (
-              'Send'
-            )}
-          </button>
-        </form>
+        {!showTripForm && (
+          <form className="input-area" onSubmit={handleSubmit}>
+            <input
+              type="text"
+              className="input"
+              placeholder="Ask about your Disney trip…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              autoComplete="off"
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              className="send-btn"
+              aria-label="Send"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="loading-dots" aria-hidden>
+                  <span />
+                  <span />
+                  <span />
+                </span>
+              ) : (
+                'Send'
+              )}
+            </button>
+          </form>
+        )}
       </main>
     </div>
   )

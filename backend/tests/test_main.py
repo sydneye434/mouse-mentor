@@ -16,7 +16,8 @@ def test_chat_empty_messages():
     assert response.status_code == 200
     data = response.json()
     assert "reply" in data
-    assert "Disney" in data["reply"] or "disney" in data["reply"].lower()
+    reply = data["reply"].lower()
+    assert "disney" in reply or "trip" in reply or "parks" in reply
 
 
 def test_chat_with_message():
@@ -39,3 +40,25 @@ def test_chat_with_message():
 def test_chat_invalid_body_rejected():
     response = client.post("/chat", json={})
     assert response.status_code == 422
+
+
+def test_chat_with_trip_info():
+    response = client.post(
+        "/chat",
+        json={
+            "messages": [{"role": "user", "text": "What parks should I book?"}],
+            "trip_info": {
+                "destination": "disney-world",
+                "arrival_date": "2025-06-01",
+                "departure_date": "2025-06-05",
+                "number_of_adults": 2,
+                "number_of_children": 1,
+                "length_of_stay_days": 5,
+            },
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "reply" in data
+    assert "Walt Disney World" in data["reply"] or "disney-world" in data["reply"]
+    assert "2" in data["reply"] or "3" in data["reply"]  # party size
