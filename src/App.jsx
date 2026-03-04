@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import MickeyIcon from './MickeyIcon.jsx'
 import GetToKnowYou from './components/GetToKnowYou.jsx'
 import TripSummary from './components/TripSummary.jsx'
@@ -6,6 +6,42 @@ import { toTripInfoPayload } from './tripInfo.js'
 import './App.css'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const SESSION_STORAGE_KEY = 'mouse-mentor-session-id'
+
+function getOrCreateSessionId() {
+  let id =
+    typeof sessionStorage !== 'undefined'
+      ? sessionStorage.getItem(SESSION_STORAGE_KEY)
+      : null
+  if (!id) {
+    id = crypto.randomUUID()
+    if (typeof sessionStorage !== 'undefined')
+      sessionStorage.setItem(SESSION_STORAGE_KEY, id)
+  }
+  return id
+}
+
+/** Map backend snake_case trip to frontend camelCase */
+function tripFromApi(data) {
+  if (!data) return null
+  return {
+    destination: data.destination,
+    arrivalDate: data.arrival_date ?? '',
+    departureDate: data.departure_date ?? '',
+    numberOfAdults: data.number_of_adults ?? 1,
+    numberOfChildren: data.number_of_children ?? 0,
+    childAges: data.child_ages ?? [],
+    datesFlexible: data.dates_flexible ?? false,
+    onSite: data.on_site ?? null,
+    resortTier: data.resort_tier ?? '',
+    firstVisit: data.first_visit ?? null,
+    specialOccasion: data.special_occasion ?? '',
+    priorities: data.priorities ?? [],
+    tripPace: data.trip_pace ?? '',
+    dietaryNotes: data.dietary_notes ?? '',
+    lengthOfStayDays: data.length_of_stay_days,
+  }
+}
 
 export default function App() {
   const [messages, setMessages] = useState([])
@@ -13,10 +49,56 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [tripInfo, setTripInfo] = useState(null)
   const [showTripForm, setShowTripForm] = useState(true)
+  const [saveTripData, setSaveTripData] = useState(false)
+  const [sessionId] = useState(getOrCreateSessionId)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-  function handleTripSubmit(trip) {
+  const loadSavedTrip = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/trip?session_id=${encodeURIComponent(sessionId)}`
+      )
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.trip) {
+        setTripInfo(tripFromApi(data.trip))
+        setSaveTripData(true)
+        setShowTripForm(false)
+      }
+    } catch {
+      // ignore
+    }
+  }, [sessionId])
+
+  useEffect(() => {
+    loadSavedTrip()
+  }, [loadSavedTrip])
+
+  function handleTripSubmit(payload) {
+    const { saveTripData: optIn, ...trip } = payload
     setTripInfo(trip)
+    setSaveTripData(!!optIn)
     setShowTripForm(false)
+    setShowDeleteConfirm(false)
+    setDeleteConfirmChecked(false)
+  }
+
+  async function handleDeleteSavedData() {
+    if (!deleteConfirmChecked) return
+    setDeleting(true)
+    try {
+      await fetch(
+        `${API_BASE}/trip?session_id=${encodeURIComponent(sessionId)}`,
+        { method: 'DELETE' }
+      )
+      setSaveTripData(false)
+      setShowDeleteConfirm(false)
+      setDeleteConfirmChecked(false)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function handleSubmit(e) {
@@ -36,6 +118,8 @@ export default function App() {
         messages: [...messages, { role: 'user', text: userText }].map(
           ({ role, text }) => ({ role, text })
         ),
+        save_trip: saveTripData,
+        session_id: sessionId,
       }
       if (tripInfo) {
         body.trip_info = toTripInfoPayload(tripInfo)
@@ -199,6 +283,7 @@ export default function App() {
         {showTripForm && (
           <GetToKnowYou
             initialTrip={tripInfo}
+            initialSaveTripData={saveTripData}
             onSubmit={handleTripSubmit}
             onSkip={() => setShowTripForm(false)}
           />
@@ -206,6 +291,70 @@ export default function App() {
 
         {tripInfo && !showTripForm && (
           <TripSummary trip={tripInfo} onEdit={() => setShowTripForm(true)} />
+        )}
+
+        {!showTripForm && saveTripData && (
+          <div className="save-notice" role="region" aria-labelledby="save-notice-heading">
+            <p id="save-notice-heading" className="save-notice__message">
+              FYI — you chose to save your data on the backend, so we are.
+              <span className="info-icon-wrap">
+                <button
+                  type="button"
+                  className="info-icon"
+                  aria-label="How is my saved data linked to me?"
+                >
+                  ℹ
+                </button>
+                <span className="info-icon-tooltip" role="tooltip">
+                  Your saved trip is linked to this browser tab using a random
+                  ID we store only on your device. We don&apos;t use your IP
+                  address or identify you personally. A new tab or another device
+                  won&apos;t see this trip unless you save it there too. Closing
+                  the tab or clearing site data removes the link.
+                </span>
+              </span>
+            </p>
+            {!showDeleteConfirm ? (
+              <button
+                type="button"
+                className="save-notice__delete-link"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                Delete my saved data
+              </button>
+            ) : (
+              <div className="save-notice__delete-confirm">
+                <label className="save-notice__delete-label">
+                  <input
+                    type="checkbox"
+                    checked={deleteConfirmChecked}
+                    onChange={(e) => setDeleteConfirmChecked(e.target.checked)}
+                  />
+                  <span>Yes, really delete all my data from the backend servers</span>
+                </label>
+                <div className="save-notice__delete-actions">
+                  <button
+                    type="button"
+                    className="save-notice__delete-cancel"
+                    onClick={() => {
+                      setShowDeleteConfirm(false)
+                      setDeleteConfirmChecked(false)
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="save-notice__delete-btn"
+                    disabled={!deleteConfirmChecked || deleting}
+                    onClick={handleDeleteSavedData}
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         <div className="messages">

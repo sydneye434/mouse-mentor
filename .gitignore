@@ -205,6 +205,10 @@ cython_debug/
 node_modules/
 dist/
 
+# Local SQLite DB for saved trips (opt-in only)
+backend/saved_trips.db
+backend/saved_trips.db-journal
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

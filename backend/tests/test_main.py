@@ -62,3 +62,52 @@ def test_chat_with_trip_info():
     assert "reply" in data
     assert "Walt Disney World" in data["reply"] or "disney-world" in data["reply"]
     assert "2" in data["reply"] or "3" in data["reply"]  # party size
+
+
+def test_get_trip_empty():
+    response = client.get("/trip")
+    assert response.status_code == 200
+    assert response.json() == {"trip": None}
+
+
+def test_get_trip_after_save():
+    session_id = "test-session-123"
+    trip = {
+        "destination": "disney-world",
+        "number_of_adults": 2,
+    }
+    client.post(
+        "/chat",
+        json={
+            "messages": [{"role": "user", "text": "Hi"}],
+            "trip_info": trip,
+            "save_trip": True,
+            "session_id": session_id,
+        },
+    )
+    response = client.get(f"/trip?session_id={session_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["trip"] is not None
+    assert data["trip"]["destination"] == "disney-world"
+    assert data["trip"]["number_of_adults"] == 2
+
+
+def test_delete_trip():
+    session_id = "test-session-delete"
+    client.post(
+        "/chat",
+        json={
+            "messages": [{"role": "user", "text": "Hi"}],
+            "trip_info": {"destination": "disney-world"},
+            "save_trip": True,
+            "session_id": session_id,
+        },
+    )
+    response = client.get(f"/trip?session_id={session_id}")
+    assert response.json()["trip"] is not None
+    del_response = client.delete(f"/trip?session_id={session_id}")
+    assert del_response.status_code == 200
+    assert del_response.json() == {"deleted": True}
+    get_again = client.get(f"/trip?session_id={session_id}")
+    assert get_again.json()["trip"] is None

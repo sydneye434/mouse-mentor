@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+import store
 
 app = FastAPI(title="Mouse Mentor API")
 
@@ -45,6 +47,10 @@ class TripInfo(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     trip_info: Optional[TripInfo] = None
+    # Only when True do we save trip_info on the server. Default is False (opt-out).
+    save_trip: bool = False
+    # Identifies the browser session; only used when save_trip is True, or to clear on opt-out.
+    session_id: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -58,6 +64,16 @@ def health():
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
+    # Respect save preference: only store when explicitly opted in; clear when opted out.
+    if request.session_id:
+        if request.save_trip and request.trip_info:
+            store.save_trip(
+                request.session_id,
+                request.trip_info.model_dump(),
+            )
+        elif not request.save_trip:
+            store.delete_trip(request.session_id)
+
     last = request.messages[-1] if request.messages else None
     trip = request.trip_info
 
@@ -104,6 +120,27 @@ def chat(request: ChatRequest):
     else:
         reply = "Share your trip details above, then ask about parks, hotels, dining, or dates."
     return ChatResponse(reply=reply)
+
+
+@app.get("/trip")
+def get_saved_trip(
+    session_id: Optional[str] = Query(None, description="Session ID for saved trip"),
+):
+    """Return trip data previously saved for this session, if any. Only exists when user opted in to save."""
+    if not session_id:
+        return {"trip": None}
+    data = store.get_trip(session_id)
+    return {"trip": data}
+
+
+@app.delete("/trip")
+def delete_saved_trip(
+    session_id: Optional[str] = Query(None, description="Session ID for saved trip"),
+):
+    """Permanently delete trip data saved for this session."""
+    if session_id:
+        store.delete_trip(session_id)
+    return {"deleted": True}
 
 
 def _days_between(start: Optional[str], end: Optional[str]) -> Optional[int]:

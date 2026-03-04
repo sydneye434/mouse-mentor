@@ -21,13 +21,19 @@ const STEPS = [
   { id: 'first-time', title: 'First time or coming back?' },
   { id: 'vibe', title: "What's your vibe?" },
   { id: 'extra', title: 'Anything else we should know?' },
-  { id: 'done', title: "You're all set!" },
+  { id: 'save', title: 'Save your trip?' },
 ]
 
 const TOTAL_STEPS = STEPS.length
 
-export default function GetToKnowYou({ initialTrip, onSubmit, onSkip }) {
+export default function GetToKnowYou({
+  initialTrip,
+  initialSaveTripData = false,
+  onSubmit,
+  onSkip,
+}) {
   const [step, setStep] = useState(1)
+  const [saveTripData, setSaveTripData] = useState(!!initialSaveTripData)
   const [trip, setTrip] = useState(() => ({
     destination: initialTrip?.destination ?? 'disney-world',
     arrivalDate: initialTrip?.arrivalDate ?? '',
@@ -67,11 +73,7 @@ export default function GetToKnowYou({ initialTrip, onSubmit, onSkip }) {
   }
 
   function next() {
-    if (step >= TOTAL_STEPS - 1) {
-      buildAndSubmit()
-      return
-    }
-    setStep((s) => s + 1)
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS))
   }
 
   function back() {
@@ -102,6 +104,7 @@ export default function GetToKnowYou({ initialTrip, onSubmit, onSkip }) {
       tripPace: trip.tripPace || undefined,
       dietaryNotes: trip.dietaryNotes?.trim() || undefined,
       onSite: trip.onSite,
+      saveTripData,
     })
   }
 
@@ -111,7 +114,7 @@ export default function GetToKnowYou({ initialTrip, onSubmit, onSkip }) {
   return (
     <div className="get-to-know-you">
       <div className="get-to-know-you__progress">
-        {STEPS.slice(0, -1).map((s, i) => (
+        {STEPS.map((s, i) => (
           <button
             key={s.id}
             type="button"
@@ -123,7 +126,7 @@ export default function GetToKnowYou({ initialTrip, onSubmit, onSkip }) {
         ))}
       </div>
       <p className="get-to-know-you__step-label">
-        Step {step} of {TOTAL_STEPS - 1}
+        Step {step} of {TOTAL_STEPS}
       </p>
 
       <div className="get-to-know-you__card">
@@ -439,20 +442,51 @@ export default function GetToKnowYou({ initialTrip, onSubmit, onSkip }) {
                 rows={3}
               />
             </label>
+            <p className="get-to-know-you__hint" style={{ marginTop: '1rem' }}>
+              Next: we&apos;ll ask whether you want to save your trip on the server.
+            </p>
           </>
         )}
 
         {step === 8 && (
-          <>
-            <div className="get-to-know-you__done-icon">
-              <MickeyIcon size={48} />
-            </div>
-            <h2 className="get-to-know-you__question">You&apos;re all set!</h2>
-            <p className="get-to-know-you__hint">
-              We&apos;ve got the scoop on your trip. Ready to plan something
-              amazing?
+          <div className="get-to-know-you__data-storage" role="region" aria-labelledby="data-storage-heading">
+            <h2 id="data-storage-heading" className="get-to-know-you__question get-to-know-you__data-storage-heading">
+              Save your trip on the server?
+              <span className="info-icon-wrap">
+                <button
+                  type="button"
+                  className="info-icon"
+                  aria-label="How is my saved data linked to me?"
+                >
+                  ℹ
+                </button>
+                <span className="info-icon-tooltip" role="tooltip">
+                  Your saved trip is linked to this browser tab using a random ID
+                  we store only on your device. We don&apos;t use your IP address
+                  or identify you personally. A new tab or another device
+                  won&apos;t see this trip unless you save it there too. Closing
+                  the tab or clearing site data removes the link.
+                </span>
+              </span>
+            </h2>
+            <p className="get-to-know-you__data-storage-text">
+              We do not save your trip details on our servers. Your answers are
+              only used in this session to personalize advice. Nothing is
+              stored unless you turn on the option below.
             </p>
-          </>
+            <label className="get-to-know-you__checkbox get-to-know-you__data-storage-opt-in">
+              <input
+                type="checkbox"
+                checked={saveTripData}
+                onChange={(e) => setSaveTripData(e.target.checked)}
+                aria-describedby="data-storage-opt-in-desc"
+              />
+              <span id="data-storage-opt-in-desc">
+                Save my trip on the server so I can return later. I understand
+                my trip details will be stored on the server.
+              </span>
+            </label>
+          </div>
         )}
 
         <div className="get-to-know-you__actions">

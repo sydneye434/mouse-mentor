@@ -1,6 +1,6 @@
 # Mouse Mentor
 
-A web app for planning Disney trips via an AI chat assistant. Users go through a short **get-to-know-you** questionnaire (destination, dates, party, where they want to stay, first visit or returning, priorities, pace, dietary notes) or skip it, then chat with the assistant; trip details are sent with each message for personalized replies.
+A web app for planning Disney trips via an AI chat assistant. Users go through a short **get-to-know-you** questionnaire (destination, dates, party, where they want to stay, first visit or returning, priorities, pace, dietary notes) or skip it, then chat with the assistant; trip details are sent with each message for personalized replies. **Trip data is not saved on the server unless the user explicitly opts in** on the final step of the questionnaire (step 8: “Save your trip?”); the default is to not store any data. Saved data is tied to a **browser session** (a random ID stored only in the browser), not to IP address or personal identity. An info icon (ℹ) on the save step and on the chat page explains this; users who opted in can delete their saved data from the chat page at any time.
 
 ## Prerequisites
 
@@ -50,8 +50,10 @@ Leave this terminal running. You should see something like: `Local: http://local
 
 1. Open your browser (Chrome, Firefox, Safari, or Edge).
 2. Go to: **http://localhost:5173**
-3. You’ll see the **get-to-know-you** flow first: answer a few questions (destination, dates, who’s going, where you want to stay, first visit or returning, vibe, and anything else). You can choose **Skip for now** to go straight to chat, or complete the steps and click **Start planning**.
-4. After that, the main **chat** view appears. Type a message and click **Send** to talk to the assistant (the backend returns a placeholder reply until you add an LLM). Your trip details are sent with each message so responses can be personalized.
+3. You’ll see the **get-to-know-you** flow first: answer a few questions (destination, dates, who’s going, where you want to stay, first visit or returning, vibe, and anything else). You can choose **Skip for now** to go straight to chat, or complete the steps and click **Next** through to the last step.
+4. The final step (step 8) is **Save your trip on the server?** — we do not save your trip unless you turn the option on. A checkbox is off by default. An **info icon (ℹ)** next to the heading explains how your data is linked (browser tab only, not IP or identity). Only if you turn it on will your trip be stored so you can return later.
+5. After you click **Start planning**, the main **chat** view appears. If you opted in to save, you’ll see a notice at the top: “FYI — you chose to save your data on the backend, so we are.” The same info icon there explains the session link; you can **Delete my saved data** at any time (with a confirmation step: “Yes, really delete all my data from the backend servers”).
+6. Type a message and click **Send** to talk to the assistant (the backend returns a placeholder reply until you add an LLM). Your trip details are sent with each message so responses can be personalized.
 
 **URLs at a glance:**
 
@@ -82,9 +84,13 @@ Replace the URL as needed, then restart the frontend (`npm run dev`).
 ## Backend API
 
 - **GET** `/health` — health check
-- **POST** `/chat` — send messages and get an assistant reply. Body: `{ "messages": [{ "role": "user", "text": "..." }], "trip_info": { ... } }`. `trip_info` is optional and can include destination, dates, party size, on-site/off-site stay, resort tier, first visit, priorities, trip pace, dietary notes, etc. (see `TripInfo` in `backend/main.py`).
+- **GET** `/trip?session_id=...` — return trip data previously saved for this session (only when the user opted in). Returns `{ "trip": { ... } }` or `{ "trip": null }`. The `session_id` is a random ID generated and stored only in the browser (e.g. in `sessionStorage`); it is not derived from IP address or any other identifier.
+- **DELETE** `/trip?session_id=...` — permanently delete saved trip data for this session. Returns `{ "deleted": true }`.
+- **POST** `/chat` — send messages and get an assistant reply. Body: `{ "messages": [{ "role": "user", "text": "..." }], "trip_info": { ... }, "save_trip": false, "session_id": null }`. `trip_info` is optional. **`save_trip` defaults to `false`**: only when `true` is trip data stored on the server; when `false`, any previously saved trip for that `session_id` is removed. `session_id` is optional and identifies the browser session (same random ID as above).
 
 The `/chat` endpoint currently returns a placeholder reply; you can add an LLM or other logic in `backend/main.py`.
+
+Saved trip data is stored in SQLite (`backend/saved_trips.db`) and keyed only by `session_id`. No IP address or other user identifier is used.
 
 ## CI pipeline and quality checks
 
