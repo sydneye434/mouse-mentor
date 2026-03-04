@@ -1,0 +1,33 @@
+# See https://pre-commit.com for more information
+default_language_version:
+  node: "20"
+  python: python3
+
+repos:
+  # Frontend: format and lint staged files via project's npm
+  - repo: local
+    hooks:
+      - id: lint-staged
+        name: Prettier + ESLint (frontend)
+        entry: npx lint-staged
+        language: system
+        types: [javascript, jsx, css, json]
+        files: ^(src/|index\.html|\.prettierrc|eslint\.config\.js)
+
+  # Backend: Black
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        name: Black (backend)
+        args: [--config, backend/pyproject.toml]
+        files: ^backend/.*\.py$
+
+  # Backend: Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        name: Ruff (backend)
+        args: [--fix, --config, backend/pyproject.toml]
+        files: ^backend/.*\.py$

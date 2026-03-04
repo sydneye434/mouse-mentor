@@ -84,3 +84,51 @@ Replace the URL as needed, then restart the frontend (`npm run dev`).
 - **POST** `/chat` — send messages and get an assistant reply (body: `{ "messages": [{ "role": "user", "text": "..." }] }`)
 
 The `/chat` endpoint currently returns a placeholder reply; you can add an LLM or other logic in `backend/main.py`.
+
+## CI pipeline and quality checks
+
+GitHub Actions runs on push/PR to `main` (or `master`) and verifies:
+
+- **Formatting** — Prettier (frontend), Black (backend)
+- **Linting** — ESLint (frontend), Ruff (backend)
+- **Unit tests** — Vitest with coverage (frontend), pytest with coverage (backend); coverage must meet thresholds
+- **Security** — `npm audit` (frontend), Bandit + pip-audit (backend)
+
+Run the same checks locally:
+
+**Frontend (from project root):**
+```bash
+npm ci
+npm run format:check
+npm run lint
+npm run test:coverage
+```
+
+**Backend (from `backend/` with venv active):**
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+black --check .
+ruff check .
+pytest --cov=. --cov-report=term-missing --cov-fail-under=50
+bandit -r . -x ./tests
+pip-audit -r requirements.txt
+```
+
+## Pre-commit hook
+
+A pre-commit hook reformats and lints staged code so it passes the pipeline checks.
+
+**One-time setup:**
+
+1. Install [pre-commit](https://pre-commit.com/) (e.g. `pip install pre-commit` or `brew install pre-commit`).
+2. From the project root, run:
+   ```bash
+   pre-commit install
+   ```
+
+After that, every `git commit` will:
+
+- **Frontend:** run Prettier and ESLint (with `--fix`) on staged JS/JSX/CSS/JSON and `index.html`.
+- **Backend:** run Black and Ruff (with `--fix`) on staged Python files under `backend/`.
+
+If any tool changes files, the commit is aborted so you can review and re-commit. Run `pre-commit run --all-files` to check the whole repo without committing.

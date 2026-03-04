@@ -6,14 +6,40 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --max-warnings 0 --fix",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,json,css}\" \"index.html\"",
+    "format": "prettier --write \"src/**/*.{js,jsx,json,css}\" \"index.html\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "lint-staged": {
+    "src/**/*.{js,jsx,css,json}": "prettier --write",
+    "src/**/*.{js,jsx}": "eslint --fix",
+    "index.html": "prettier --write"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^6.0.3"
+    "@vitest/coverage-v8": "^2.1.6",
+    "eslint": "^9.15.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.14",
+    "globals": "^15.12.0",
+    "jsdom": "^25.0.0",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.6"
   }
 }
