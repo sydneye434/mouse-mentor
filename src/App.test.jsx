@@ -1,5 +1,9 @@
+/**
+ * Developed by Sydney Edwards
+ * App tests: logo, empty state, chat submit, and create-account flow (with mocked fetch/localStorage).
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App.jsx'
 
@@ -61,5 +65,75 @@ describe('App', () => {
       screen.getByText('When is the best time to visit?')
     ).toBeInTheDocument()
     await screen.findByText('Test assistant reply')
+  })
+
+  it('create account flow: open modal, register, then shows user and Sign out', async () => {
+    const user = userEvent.setup()
+    const testEmail = 'newuser@example.com'
+    const testToken = 'fake-jwt-token'
+    const storage = {}
+    vi.stubGlobal('localStorage', {
+      getItem: (key) => storage[key] ?? null,
+      setItem: (key, value) => {
+        storage[key] = String(value)
+      },
+      removeItem: (key) => {
+        delete storage[key]
+      },
+      clear: () => {
+        for (const k of Object.keys(storage)) delete storage[k]
+      },
+      get length() {
+        return Object.keys(storage).length
+      },
+      key: (i) => Object.keys(storage)[i] ?? null,
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url, opts) => {
+        const body =
+          opts?.body && typeof opts.body === 'string'
+            ? JSON.parse(opts.body)
+            : {}
+        if (
+          typeof url === 'string' &&
+          url.endsWith('/auth/register') &&
+          opts?.method === 'POST'
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                access_token: testToken,
+                token_type: 'bearer',
+                email: body.email || testEmail,
+              }),
+          })
+        }
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
+      })
+    )
+    render(<App />)
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+    expect(
+      screen.getByRole('heading', { name: /sign in/i })
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /register/i }))
+    expect(
+      screen.getByRole('heading', { name: /create account/i })
+    ).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: /email/i }), testEmail)
+    await user.type(screen.getByLabelText(/password/i), 'password123')
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+    await screen.findByText(testEmail)
+    expect(
+      screen.getByRole('button', { name: /sign out/i })
+    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('heading', { name: /create account/i })
+      ).not.toBeInTheDocument()
+    })
   })
 })

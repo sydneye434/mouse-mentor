@@ -1,3 +1,8 @@
+/**
+ * Developed by Sydney Edwards
+ * Multi-step "get to know you" questionnaire: destination, dates, party, stay, vibe, priorities, and save-trip opt-in.
+ * Step 8 shows sign-in prompt when not logged in; when logged in, allows saving trip to account.
+ */
 import { useState, useEffect } from 'react'
 import MickeyIcon from '../MickeyIcon.jsx'
 import {
@@ -29,6 +34,8 @@ const TOTAL_STEPS = STEPS.length
 export default function GetToKnowYou({
   initialTrip,
   initialSaveTripData = false,
+  isLoggedIn = false,
+  onOpenAuth,
   onSubmit,
   onSkip,
 }) {
@@ -443,49 +450,74 @@ export default function GetToKnowYou({
               />
             </label>
             <p className="get-to-know-you__hint" style={{ marginTop: '1rem' }}>
-              Next: we&apos;ll ask whether you want to save your trip on the server.
+              Next: we&apos;ll ask whether you want to save your trip on the
+              server.
             </p>
           </>
         )}
 
         {step === 8 && (
-          <div className="get-to-know-you__data-storage" role="region" aria-labelledby="data-storage-heading">
-            <h2 id="data-storage-heading" className="get-to-know-you__question get-to-know-you__data-storage-heading">
+          <div
+            className="get-to-know-you__data-storage"
+            role="region"
+            aria-labelledby="data-storage-heading"
+          >
+            <h2
+              id="data-storage-heading"
+              className="get-to-know-you__question get-to-know-you__data-storage-heading"
+            >
               Save your trip on the server?
-              <span className="info-icon-wrap">
+              {isLoggedIn && (
+                <span className="info-icon-wrap">
+                  <button
+                    type="button"
+                    className="info-icon"
+                    aria-label="How is my saved data linked to me?"
+                  >
+                    ℹ
+                  </button>
+                  <span className="info-icon-tooltip" role="tooltip">
+                    Your saved trip is stored on our servers and linked to your
+                    account. Only you can see or delete it. We don&apos;t use
+                    your IP address; access is tied to your sign-in.
+                  </span>
+                </span>
+              )}
+            </h2>
+            {isLoggedIn ? (
+              <>
+                <p className="get-to-know-you__data-storage-text">
+                  We do not save your trip details unless you turn on the option
+                  below. Your data is tied to your account.
+                </p>
+                <label className="get-to-know-you__checkbox get-to-know-you__data-storage-opt-in">
+                  <input
+                    type="checkbox"
+                    checked={saveTripData}
+                    onChange={(e) => setSaveTripData(e.target.checked)}
+                    aria-describedby="data-storage-opt-in-desc"
+                  />
+                  <span id="data-storage-opt-in-desc">
+                    Save my trip on the server so I can return later. I
+                    understand my trip details will be stored on the server.
+                  </span>
+                </label>
+              </>
+            ) : (
+              <>
+                <p className="get-to-know-you__data-storage-text">
+                  Saving your trip requires an account. Sign in or create one to
+                  save your trip and return to it later from any device.
+                </p>
                 <button
                   type="button"
-                  className="info-icon"
-                  aria-label="How is my saved data linked to me?"
+                  className="get-to-know-you__btn get-to-know-you__btn--primary"
+                  onClick={onOpenAuth}
                 >
-                  ℹ
+                  Sign in to save your trip
                 </button>
-                <span className="info-icon-tooltip" role="tooltip">
-                  Your saved trip is linked to this browser tab using a random ID
-                  we store only on your device. We don&apos;t use your IP address
-                  or identify you personally. A new tab or another device
-                  won&apos;t see this trip unless you save it there too. Closing
-                  the tab or clearing site data removes the link.
-                </span>
-              </span>
-            </h2>
-            <p className="get-to-know-you__data-storage-text">
-              We do not save your trip details on our servers. Your answers are
-              only used in this session to personalize advice. Nothing is
-              stored unless you turn on the option below.
-            </p>
-            <label className="get-to-know-you__checkbox get-to-know-you__data-storage-opt-in">
-              <input
-                type="checkbox"
-                checked={saveTripData}
-                onChange={(e) => setSaveTripData(e.target.checked)}
-                aria-describedby="data-storage-opt-in-desc"
-              />
-              <span id="data-storage-opt-in-desc">
-                Save my trip on the server so I can return later. I understand
-                my trip details will be stored on the server.
-              </span>
-            </label>
+              </>
+            )}
           </div>
         )}
 

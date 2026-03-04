@@ -1,3 +1,7 @@
+/**
+ * Developed by Sydney Edwards
+ * MickeyIcon component tests: SVG presence, size prop, three circles.
+ */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import MickeyIcon from './MickeyIcon.jsx'

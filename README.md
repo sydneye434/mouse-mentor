@@ -1,6 +1,6 @@
 # Mouse Mentor
 
-A web app for planning Disney trips via an AI chat assistant. Users go through a short **get-to-know-you** questionnaire (destination, dates, party, where they want to stay, first visit or returning, priorities, pace, dietary notes) or skip it, then chat with the assistant; trip details are sent with each message for personalized replies. **Trip data is not saved on the server unless the user explicitly opts in** on the final step of the questionnaire (step 8: “Save your trip?”); the default is to not store any data. Saved data is tied to a **browser session** (a random ID stored only in the browser), not to IP address or personal identity. An info icon (ℹ) on the save step and on the chat page explains this; users who opted in can delete their saved data from the chat page at any time.
+A web app for planning Disney trips via an AI chat assistant. Users go through a short **get-to-know-you** questionnaire (destination, dates, party, where they want to stay, first visit or returning, priorities, pace, dietary notes) or skip it, then chat with the assistant; trip details are sent with each message for personalized replies. **Saving a trip requires a user account.** On the final step (step 8: “Save your trip?”), guests can **Sign in** or **Register** (email + password); only when signed in can they opt in to save their trip. Saved data is tied to the **user account**, not to IP or browser session. An info icon (ℹ) explains this; signed-in users who opted in can delete their saved data from the chat page at any time.
 
 ## Prerequisites
 
@@ -50,10 +50,11 @@ Leave this terminal running. You should see something like: `Local: http://local
 
 1. Open your browser (Chrome, Firefox, Safari, or Edge).
 2. Go to: **http://localhost:5173**
-3. You’ll see the **get-to-know-you** flow first: answer a few questions (destination, dates, who’s going, where you want to stay, first visit or returning, vibe, and anything else). You can choose **Skip for now** to go straight to chat, or complete the steps and click **Next** through to the last step.
-4. The final step (step 8) is **Save your trip on the server?** — we do not save your trip unless you turn the option on. A checkbox is off by default. An **info icon (ℹ)** next to the heading explains how your data is linked (browser tab only, not IP or identity). Only if you turn it on will your trip be stored so you can return later.
-5. After you click **Start planning**, the main **chat** view appears. If you opted in to save, you’ll see a notice at the top: “FYI — you chose to save your data on the backend, so we are.” The same info icon there explains the session link; you can **Delete my saved data** at any time (with a confirmation step: “Yes, really delete all my data from the backend servers”).
-6. Type a message and click **Send** to talk to the assistant (the backend returns a placeholder reply until you add an LLM). Your trip details are sent with each message so responses can be personalized.
+3. Use **Sign in** in the header to log in or create an account (email + password). You can also skip and use the app without an account, but **saving your trip requires signing in**.
+4. You’ll see the **get-to-know-you** flow: answer a few questions (destination, dates, who’s going, where you want to stay, first visit or returning, vibe, and anything else). You can choose **Skip for now** to go straight to chat, or complete the steps and click **Next** through to the last step.
+5. The final step (step 8) is **Save your trip on the server?** — If you’re **not signed in**, you’ll see **Sign in to save your trip**; after signing in you can turn on the save option. If you’re **signed in**, a checkbox is off by default; an **info icon (ℹ)** explains that data is linked to your account. Only when you turn it on will your trip be stored so you can return to it from any device.
+6. After you click **Start planning**, the main **chat** view appears. If you’re signed in and opted in to save, you’ll see: “FYI — you chose to save your data on the backend, so we are.” You can **Delete my saved data** at any time (with confirmation: “Yes, really delete all my data from the backend servers”).
+7. Type a message and click **Send** to talk to the assistant (the backend returns a placeholder reply until you add an LLM). Your trip details are sent with each message so responses can be personalized.
 
 **URLs at a glance:**
 
@@ -63,7 +64,7 @@ Leave this terminal running. You should see something like: `Local: http://local
 | Backend API       | http://localhost:8000  |
 | API docs (Swagger)| http://localhost:8000/docs |
 
-If the backend is not running, the chat will show an error asking you to start it.
+If the backend is not running, the chat will show an error asking you to start it. **Creating an account or signing in will also fail** (e.g. “Not found”) if the backend is not running — the frontend sends auth requests to the same origin in dev, and Vite proxies them to the backend.
 
 ## Optional: Custom API URL
 
@@ -73,7 +74,7 @@ If your backend runs on a different host or port, create a `.env` file in the pr
 VITE_API_URL=http://localhost:8000
 ```
 
-Replace the URL as needed, then restart the frontend (`npm run dev`).
+Replace the URL as needed, then restart the frontend (`npm run dev`). **In development, if you do not set `VITE_API_URL`, the app uses relative URLs and Vite proxies `/auth`, `/chat`, `/trip`, and `/health` to `http://localhost:8000`** — so keep the backend running on port 8000.
 
 ## Frontend scripts
 
@@ -84,13 +85,15 @@ Replace the URL as needed, then restart the frontend (`npm run dev`).
 ## Backend API
 
 - **GET** `/health` — health check
-- **GET** `/trip?session_id=...` — return trip data previously saved for this session (only when the user opted in). Returns `{ "trip": { ... } }` or `{ "trip": null }`. The `session_id` is a random ID generated and stored only in the browser (e.g. in `sessionStorage`); it is not derived from IP address or any other identifier.
-- **DELETE** `/trip?session_id=...` — permanently delete saved trip data for this session. Returns `{ "deleted": true }`.
-- **POST** `/chat` — send messages and get an assistant reply. Body: `{ "messages": [{ "role": "user", "text": "..." }], "trip_info": { ... }, "save_trip": false, "session_id": null }`. `trip_info` is optional. **`save_trip` defaults to `false`**: only when `true` is trip data stored on the server; when `false`, any previously saved trip for that `session_id` is removed. `session_id` is optional and identifies the browser session (same random ID as above).
+- **POST** `/auth/register` — create account. Body: `{ "email": "...", "password": "..." }`. Password at least 8 characters. Returns `{ "access_token": "...", "token_type": "bearer", "email": "..." }`.
+- **POST** `/auth/login` — sign in. Body: `{ "email": "...", "password": "..." }`. Returns `{ "access_token": "...", "token_type": "bearer", "email": "..." }`.
+- **GET** `/trip` — return the current user’s saved trip. **Requires auth:** `Authorization: Bearer <access_token>`. Returns `{ "trip": { ... } }` or `{ "trip": null }`.
+- **DELETE** `/trip` — permanently delete the current user’s saved trip. **Requires auth:** `Authorization: Bearer <access_token>`. Returns `{ "deleted": true }`.
+- **POST** `/chat` — send messages and get an assistant reply. Body: `{ "messages": [{ "role": "user", "text": "..." }], "trip_info": { ... }, "save_trip": false }`. **`save_trip` defaults to `false`.** When `true`, trip data is stored for the current user (requires `Authorization: Bearer <access_token>`); when `false`, any previously saved trip for that user is removed. Unauthenticated requests with `save_trip: true` receive 401.
 
 The `/chat` endpoint currently returns a placeholder reply; you can add an LLM or other logic in `backend/main.py`.
 
-Saved trip data is stored in SQLite (`backend/saved_trips.db`) and keyed only by `session_id`. No IP address or other user identifier is used.
+Saved trip data is stored in SQLite (`backend/saved_trips.db`) in a `saved_trips` table keyed by `user_id`. User accounts are stored in a `users` table in the same database (email + bcrypt-hashed password). JWT access tokens are used for authentication.
 
 ## CI pipeline and quality checks
 

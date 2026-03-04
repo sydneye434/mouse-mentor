@@ -1,6 +1,7 @@
 /**
+ * Developed by Sydney Edwards
  * Trip details collected via "get to know you" flow.
- * Matches backend TripInfo; use for API payloads.
+ * Matches backend TripInfo; use for API payloads and shared option constants.
  */
 export function toTripInfoPayload(trip) {
   return {

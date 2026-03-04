@@ -1,4 +1,5 @@
-/* Disney-inspired, professional: refined palette and spacing */
+/* Developed by Sydney Edwards */
+/* Disney-inspired, professional: refined palette and spacing for app layout, header, chat, messages */
 .app {
   --disney-red: #b71c38;
   --disney-red-hover: #8f162c;
@@ -90,6 +91,44 @@
   background: var(--castle);
   border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
+}
+
+.header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header__auth {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header__email {
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header__auth-btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.header__auth-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--castle-light);
 }
 
 .logo-wrap {

@@ -1,3 +1,7 @@
+/**
+ * Developed by Sydney Edwards
+ * Read-only summary of trip details with Edit button. Shown after get-to-know-you or when returning with saved trip.
+ */
 import {
   DESTINATIONS,
   CHILD_AGE_RANGE_OPTIONS,

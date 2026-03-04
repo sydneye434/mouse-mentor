@@ -1,7 +1,8 @@
 """
-Simple SQLite store for trip data attached to a session.
-Only used when the user explicitly opts in to save their data.
+SQLite store for trip data. Trips are saved per user account (user_id).
+Session-based storage has been removed. Developed by Sydney Edwards.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,28 +22,37 @@ def _get_db_path() -> str:
 
 
 def _conn() -> sqlite3.Connection:
-    path = _get_db_path()
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(_get_db_path())
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
 def init_db() -> None:
-    """Create the saved_trips table if it does not exist."""
+    """Create the saved_trips table if it does not exist (keyed by user_id). Migrate from session_id schema if present."""
     with _conn() as c:
+        cur = c.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='saved_trips'"
+        )
+        if cur.fetchone():
+            info = c.execute("PRAGMA table_info(saved_trips)").fetchall()
+            columns = [row[1] for row in info]
+            if "user_id" not in columns:
+                c.execute("DROP TABLE saved_trips")
         c.execute(
             """
             CREATE TABLE IF NOT EXISTS saved_trips (
-                session_id TEXT PRIMARY KEY,
+                user_id INTEGER PRIMARY KEY,
                 trip_data TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id)
             )
             """
         )
 
 
-def save_trip(session_id: str, trip_data: dict[str, Any]) -> None:
-    """Save or replace trip data for the given session_id."""
+def save_trip(user_id: int, trip_data: dict[str, Any]) -> None:
+    """Save or replace trip data for the given user_id."""
     import datetime
 
     init_db()
@@ -51,31 +61,31 @@ def save_trip(session_id: str, trip_data: dict[str, Any]) -> None:
     with _conn() as c:
         c.execute(
             """
-            INSERT INTO saved_trips (session_id, trip_data, updated_at)
+            INSERT INTO saved_trips (user_id, trip_data, updated_at)
             VALUES (?, ?, ?)
-            ON CONFLICT(session_id) DO UPDATE SET
+            ON CONFLICT(user_id) DO UPDATE SET
                 trip_data = excluded.trip_data,
                 updated_at = excluded.updated_at
             """,
-            (session_id, raw, updated),
+            (user_id, raw, updated),
         )
 
 
-def get_trip(session_id: str) -> Optional[dict[str, Any]]:
-    """Return saved trip data for the session, or None."""
+def get_trip(user_id: int) -> Optional[dict[str, Any]]:
+    """Return saved trip data for the user, or None."""
     init_db()
     with _conn() as c:
         row = c.execute(
-            "SELECT trip_data FROM saved_trips WHERE session_id = ?",
-            (session_id,),
+            "SELECT trip_data FROM saved_trips WHERE user_id = ?",
+            (user_id,),
         ).fetchone()
     if row is None:
         return None
     return json.loads(row["trip_data"])
 
 
-def delete_trip(session_id: str) -> None:
-    """Remove any saved trip for this session (e.g. when user opts out)."""
+def delete_trip(user_id: int) -> None:
+    """Remove saved trip for this user."""
     init_db()
     with _conn() as c:
-        c.execute("DELETE FROM saved_trips WHERE session_id = ?", (session_id,))
+        c.execute("DELETE FROM saved_trips WHERE user_id = ?", (user_id,))

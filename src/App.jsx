@@ -1,24 +1,38 @@
+/**
+ * Developed by Sydney Edwards
+ * Main app: auth state, get-to-know-you flow, chat, and saved trip. Uses proxy in dev for API.
+ */
 import { useState, useEffect, useCallback } from 'react'
 import MickeyIcon from './MickeyIcon.jsx'
 import GetToKnowYou from './components/GetToKnowYou.jsx'
 import TripSummary from './components/TripSummary.jsx'
+import AuthModal from './components/AuthModal.jsx'
 import { toTripInfoPayload } from './tripInfo.js'
 import './App.css'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const SESSION_STORAGE_KEY = 'mouse-mentor-session-id'
+const API_BASE =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.DEV ? '' : 'http://localhost:8000')
+const AUTH_STORAGE_KEY = 'mouse-mentor-auth'
 
-function getOrCreateSessionId() {
-  let id =
-    typeof sessionStorage !== 'undefined'
-      ? sessionStorage.getItem(SESSION_STORAGE_KEY)
-      : null
-  if (!id) {
-    id = crypto.randomUUID()
-    if (typeof sessionStorage !== 'undefined')
-      sessionStorage.setItem(SESSION_STORAGE_KEY, id)
+function getStoredUser() {
+  try {
+    const raw =
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem(AUTH_STORAGE_KEY)
+        : null
+    if (!raw) return null
+    const data = JSON.parse(raw)
+    if (data && data.token && data.email) return data
+  } catch {}
+  return null
+}
+
+function setStoredUser(user) {
+  if (typeof localStorage !== 'undefined') {
+    if (user) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user))
+    else localStorage.removeItem(AUTH_STORAGE_KEY)
   }
-  return id
 }
 
 /** Map backend snake_case trip to frontend camelCase */
@@ -50,16 +64,35 @@ export default function App() {
   const [tripInfo, setTripInfo] = useState(null)
   const [showTripForm, setShowTripForm] = useState(true)
   const [saveTripData, setSaveTripData] = useState(false)
-  const [sessionId] = useState(getOrCreateSessionId)
+  const [user, setUser] = useState(getStoredUser)
+  const [showAuthModal, setShowAuthModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  function handleAuthSuccess(authUser) {
+    setUser(authUser)
+    setStoredUser(authUser)
+  }
+
+  function handleLogout() {
+    setUser(null)
+    setStoredUser(null)
+    setSaveTripData(false)
+    setShowDeleteConfirm(false)
+    setDeleteConfirmChecked(false)
+  }
+
   const loadSavedTrip = useCallback(async () => {
+    if (!user?.token) return
     try {
-      const res = await fetch(
-        `${API_BASE}/trip?session_id=${encodeURIComponent(sessionId)}`
-      )
+      const res = await fetch(`${API_BASE}/trip`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      if (res.status === 401) {
+        handleLogout()
+        return
+      }
       if (!res.ok) return
       const data = await res.json()
       if (data.trip) {
@@ -70,7 +103,7 @@ export default function App() {
     } catch {
       // ignore
     }
-  }, [sessionId])
+  }, [user?.token])
 
   useEffect(() => {
     loadSavedTrip()
@@ -86,16 +119,19 @@ export default function App() {
   }
 
   async function handleDeleteSavedData() {
-    if (!deleteConfirmChecked) return
+    if (!deleteConfirmChecked || !user?.token) return
     setDeleting(true)
     try {
-      await fetch(
-        `${API_BASE}/trip?session_id=${encodeURIComponent(sessionId)}`,
-        { method: 'DELETE' }
-      )
-      setSaveTripData(false)
-      setShowDeleteConfirm(false)
-      setDeleteConfirmChecked(false)
+      const res = await fetch(`${API_BASE}/trip`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      if (res.status === 401) handleLogout()
+      else {
+        setSaveTripData(false)
+        setShowDeleteConfirm(false)
+        setDeleteConfirmChecked(false)
+      }
     } finally {
       setDeleting(false)
     }
@@ -118,17 +154,30 @@ export default function App() {
         messages: [...messages, { role: 'user', text: userText }].map(
           ({ role, text }) => ({ role, text })
         ),
-        save_trip: saveTripData,
-        session_id: sessionId,
+        save_trip: !!user && saveTripData,
       }
       if (tripInfo) {
         body.trip_info = toTripInfoPayload(tripInfo)
       }
+      const headers = { 'Content-Type': 'application/json' }
+      if (user?.token) headers.Authorization = `Bearer ${user.token}`
       const res = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
       })
+      if (res.status === 401) {
+        handleLogout()
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            text: 'You were signed out. Sign in again to save your trip.',
+          },
+        ])
+        return
+      }
       if (!res.ok) throw new Error(res.statusText)
       const data = await res.json()
       setMessages((prev) => [
@@ -272,18 +321,51 @@ export default function App() {
         </svg>
       </div>
       <header className="header">
-        <div className="logo-wrap">
-          <MickeyIcon className="logo-icon" size={28} />
-          <h1 className="logo">Mouse Mentor</h1>
+        <div className="header__row">
+          <div className="logo-wrap">
+            <MickeyIcon className="logo-icon" size={28} />
+            <h1 className="logo">Mouse Mentor</h1>
+          </div>
+          <div className="header__auth">
+            {user ? (
+              <>
+                <span className="header__email">{user.email}</span>
+                <button
+                  type="button"
+                  className="header__auth-btn"
+                  onClick={handleLogout}
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="header__auth-btn"
+                onClick={() => setShowAuthModal(true)}
+              >
+                Sign in
+              </button>
+            )}
+          </div>
         </div>
         <p className="tagline">Disney trip planning assistant</p>
       </header>
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
 
       <main className="chat-main">
         {showTripForm && (
           <GetToKnowYou
             initialTrip={tripInfo}
             initialSaveTripData={saveTripData}
+            isLoggedIn={!!user}
+            onOpenAuth={() => setShowAuthModal(true)}
             onSubmit={handleTripSubmit}
             onSkip={() => setShowTripForm(false)}
           />
@@ -294,7 +376,11 @@ export default function App() {
         )}
 
         {!showTripForm && saveTripData && (
-          <div className="save-notice" role="region" aria-labelledby="save-notice-heading">
+          <div
+            className="save-notice"
+            role="region"
+            aria-labelledby="save-notice-heading"
+          >
             <p id="save-notice-heading" className="save-notice__message">
               FYI — you chose to save your data on the backend, so we are.
               <span className="info-icon-wrap">
@@ -306,11 +392,9 @@ export default function App() {
                   ℹ
                 </button>
                 <span className="info-icon-tooltip" role="tooltip">
-                  Your saved trip is linked to this browser tab using a random
-                  ID we store only on your device. We don&apos;t use your IP
-                  address or identify you personally. A new tab or another device
-                  won&apos;t see this trip unless you save it there too. Closing
-                  the tab or clearing site data removes the link.
+                  Your saved trip is stored on our servers and linked to your
+                  account. Only you can see or delete it. We don&apos;t use your
+                  IP address; access is tied to your sign-in.
                 </span>
               </span>
             </p>
@@ -330,7 +414,9 @@ export default function App() {
                     checked={deleteConfirmChecked}
                     onChange={(e) => setDeleteConfirmChecked(e.target.checked)}
                   />
-                  <span>Yes, really delete all my data from the backend servers</span>
+                  <span>
+                    Yes, really delete all my data from the backend servers
+                  </span>
                 </label>
                 <div className="save-notice__delete-actions">
                   <button

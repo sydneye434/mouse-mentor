@@ -1,3 +1,7 @@
+/**
+ * Developed by Sydney Edwards
+ * ESLint flat config: React, hooks, refresh; test file globals.
+ */
 import js from '@eslint/js'
 import globals from 'globals'
 import react from 'eslint-plugin-react'

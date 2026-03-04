@@ -1,11 +1,17 @@
+"""
+Mouse Mentor API: auth (register/login), chat, and saved trip per user.
+Developed by Sydney Edwards.
+"""
+
 from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import FastAPI, Query
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import auth
 import store
 
 app = FastAPI(title="Mouse Mentor API")
@@ -17,6 +23,81 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def startup():
+    auth.init_users()
+    store.init_db()
+
+
+# ----- Auth -----
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    email: str
+
+
+def get_current_user_id(
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+) -> Optional[int]:
+    """Return user_id from Bearer token, or None if missing/invalid."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization.replace("Bearer ", "").strip()
+    return auth.decode_access_token(token)
+
+
+def require_user(
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+) -> int:
+    """Return user_id from Bearer token or raise 401."""
+    user_id = get_current_user_id(authorization)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Sign in to save or load your trip")
+    if auth.get_user_by_id(user_id) is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return user_id
+
+
+@app.post("/auth/register", response_model=TokenResponse)
+def register(data: RegisterRequest):
+    if not data.email.strip():
+        raise HTTPException(status_code=400, detail="Email required")
+    if len(data.password) < 8:
+        raise HTTPException(
+            status_code=400, detail="Password must be at least 8 characters"
+        )
+    existing = auth.get_user_by_email(data.email)
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = auth.create_user(data.email, data.password)
+    token = auth.create_access_token(user["id"])
+    return TokenResponse(access_token=token, email=user["email"])
+
+
+@app.post("/auth/login", response_model=TokenResponse)
+def login(data: LoginRequest):
+    user = auth.get_user_by_email(data.email)
+    if not user or not auth.verify_password(data.password, user["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    token = auth.create_access_token(user["id"])
+    return TokenResponse(access_token=token, email=user["email"])
+
+
+# ----- Chat & Trip -----
 
 
 class ChatMessage(BaseModel):
@@ -36,21 +117,18 @@ class TripInfo(BaseModel):
     length_of_stay_days: Optional[int] = None
     dates_flexible: bool = False
     priorities: Optional[List[str]] = None
-    on_site: Optional[bool] = None  # True = staying at Disney resort
-    resort_tier: Optional[str] = None  # e.g. "value", "moderate", "deluxe"
+    on_site: Optional[bool] = None
+    resort_tier: Optional[str] = None
     first_visit: Optional[bool] = None
-    special_occasion: Optional[str] = None  # e.g. "birthday", "anniversary"
-    trip_pace: Optional[str] = None  # e.g. "relaxed", "balanced", "go-go-go"
+    special_occasion: Optional[str] = None
+    trip_pace: Optional[str] = None
     dietary_notes: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     trip_info: Optional[TripInfo] = None
-    # Only when True do we save trip_info on the server. Default is False (opt-out).
     save_trip: bool = False
-    # Identifies the browser session; only used when save_trip is True, or to clear on opt-out.
-    session_id: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -63,16 +141,20 @@ def health():
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
-    # Respect save preference: only store when explicitly opted in; clear when opted out.
-    if request.session_id:
-        if request.save_trip and request.trip_info:
-            store.save_trip(
-                request.session_id,
-                request.trip_info.model_dump(),
+def chat(
+    request: ChatRequest,
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    user_id = get_current_user_id(authorization)
+    if request.save_trip and request.trip_info:
+        if user_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Sign in to save your trip",
             )
-        elif not request.save_trip:
-            store.delete_trip(request.session_id)
+        store.save_trip(user_id, request.trip_info.model_dump())
+    elif not request.save_trip and user_id is not None:
+        store.delete_trip(user_id)
 
     last = request.messages[-1] if request.messages else None
     trip = request.trip_info
@@ -123,23 +205,14 @@ def chat(request: ChatRequest):
 
 
 @app.get("/trip")
-def get_saved_trip(
-    session_id: Optional[str] = Query(None, description="Session ID for saved trip"),
-):
-    """Return trip data previously saved for this session, if any. Only exists when user opted in to save."""
-    if not session_id:
-        return {"trip": None}
-    data = store.get_trip(session_id)
+def get_saved_trip(user_id: int = Depends(require_user)):
+    data = store.get_trip(user_id)
     return {"trip": data}
 
 
 @app.delete("/trip")
-def delete_saved_trip(
-    session_id: Optional[str] = Query(None, description="Session ID for saved trip"),
-):
-    """Permanently delete trip data saved for this session."""
-    if session_id:
-        store.delete_trip(session_id)
+def delete_saved_trip(user_id: int = Depends(require_user)):
+    store.delete_trip(user_id)
     return {"deleted": True}
 
 

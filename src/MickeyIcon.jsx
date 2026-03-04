@@ -1,4 +1,7 @@
-/** Simple three-circle Mickey-inspired silhouette (decorative only) */
+/**
+ * Developed by Sydney Edwards
+ * Simple three-circle Mickey-inspired silhouette (decorative only).
+ */
 export default function MickeyIcon({ className = '', size = 32 }) {
   return (
     <svg

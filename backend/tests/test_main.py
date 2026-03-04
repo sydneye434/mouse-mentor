@@ -1,5 +1,11 @@
+"""
+API tests: health, chat, auth (register/login), and protected trip endpoints.
+Developed by Sydney Edwards.
+"""
+
 from fastapi.testclient import TestClient
 
+import auth
 from main import app
 
 client = TestClient(app)
@@ -64,14 +70,49 @@ def test_chat_with_trip_info():
     assert "2" in data["reply"] or "3" in data["reply"]  # party size
 
 
-def test_get_trip_empty():
+def test_chat_save_trip_requires_auth():
+    response = client.post(
+        "/chat",
+        json={
+            "messages": [{"role": "user", "text": "Hi"}],
+            "trip_info": {"destination": "disney-world"},
+            "save_trip": True,
+        },
+    )
+    assert response.status_code == 401
+    assert "Sign in" in response.json()["detail"]
+
+
+def test_get_trip_requires_auth():
     response = client.get("/trip")
-    assert response.status_code == 200
-    assert response.json() == {"trip": None}
+    assert response.status_code == 401
+
+
+def get_auth_token():
+    email = "testuser@example.com"
+    password = "testpass123"
+    reg = client.post(
+        "/auth/register",
+        json={"email": email, "password": password},
+    )
+    assert reg.status_code in (200, 400)
+    if reg.status_code == 400 and "already" in reg.json().get("detail", "").lower():
+        login = client.post("/auth/login", json={"email": email, "password": password})
+        assert login.status_code == 200
+        data = login.json()
+        assert "access_token" in data
+        assert data["email"] == email
+        return data["access_token"]
+    assert reg.status_code == 200
+    data = reg.json()
+    assert "access_token" in data
+    assert data["email"] == email
+    return data["access_token"]
 
 
 def test_get_trip_after_save():
-    session_id = "test-session-123"
+    token = get_auth_token()
+    headers = {"Authorization": f"Bearer {token}"}
     trip = {
         "destination": "disney-world",
         "number_of_adults": 2,
@@ -82,10 +123,10 @@ def test_get_trip_after_save():
             "messages": [{"role": "user", "text": "Hi"}],
             "trip_info": trip,
             "save_trip": True,
-            "session_id": session_id,
         },
+        headers=headers,
     )
-    response = client.get(f"/trip?session_id={session_id}")
+    response = client.get("/trip", headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert data["trip"] is not None
@@ -94,20 +135,104 @@ def test_get_trip_after_save():
 
 
 def test_delete_trip():
-    session_id = "test-session-delete"
+    token = get_auth_token()
+    headers = {"Authorization": f"Bearer {token}"}
     client.post(
         "/chat",
         json={
             "messages": [{"role": "user", "text": "Hi"}],
             "trip_info": {"destination": "disney-world"},
             "save_trip": True,
-            "session_id": session_id,
         },
+        headers=headers,
     )
-    response = client.get(f"/trip?session_id={session_id}")
+    response = client.get("/trip", headers=headers)
     assert response.json()["trip"] is not None
-    del_response = client.delete(f"/trip?session_id={session_id}")
+    del_response = client.delete("/trip", headers=headers)
     assert del_response.status_code == 200
     assert del_response.json() == {"deleted": True}
-    get_again = client.get(f"/trip?session_id={session_id}")
+    get_again = client.get("/trip", headers=headers)
+    assert get_again.status_code == 200
     assert get_again.json()["trip"] is None
+
+
+# ----- Auth API security -----
+
+
+def test_register_rejects_empty_email():
+    """Registration must reject empty email."""
+    response = client.post(
+        "/auth/register",
+        json={"email": "   ", "password": "validpass8"},
+    )
+    assert response.status_code == 400
+    assert "email" in response.json().get("detail", "").lower()
+
+
+def test_register_rejects_short_password():
+    """Registration must enforce minimum password length (8 characters)."""
+    response = client.post(
+        "/auth/register",
+        json={"email": "newuser@example.com", "password": "short"},
+    )
+    assert response.status_code == 400
+    detail = response.json().get("detail", "")
+    assert "8" in detail or "password" in detail.lower()
+
+
+def test_register_rejects_duplicate_email():
+    """Registration must reject an email that is already registered."""
+    email = "duplicate@example.com"
+    password = "password123"
+    first = client.post("/auth/register", json={"email": email, "password": password})
+    # First attempt may succeed (200) or already exist from prior run (400)
+    assert first.status_code in (200, 400)
+    second = client.post("/auth/register", json={"email": email, "password": password})
+    assert second.status_code == 400
+    assert "already" in second.json().get("detail", "").lower()
+
+
+def test_login_rejects_wrong_password():
+    """Login must return 401 for wrong password."""
+    email = "loginwrong@example.com"
+    client.post("/auth/register", json={"email": email, "password": "correctpass8"})
+    response = client.post(
+        "/auth/login",
+        json={"email": email, "password": "wrongpassword"},
+    )
+    assert response.status_code == 401
+    detail = response.json().get("detail", "").lower()
+    assert "invalid" in detail or "password" in detail
+
+
+def test_login_rejects_unknown_email_same_status():
+    """Login must return 401 for unknown email (same as wrong password, no user enumeration)."""
+    response = client.post(
+        "/auth/login",
+        json={"email": "nonexistent@example.com", "password": "anypassword"},
+    )
+    assert response.status_code == 401
+    detail = response.json().get("detail", "").lower()
+    assert "invalid" in detail or "password" in detail or "email" in detail
+
+
+def test_get_trip_rejects_malformed_bearer_token():
+    """Protected route must return 401 when Bearer token is missing or malformed."""
+    r1 = client.get("/trip", headers={"Authorization": "Bearer"})
+    assert r1.status_code == 401
+    r2 = client.get("/trip", headers={"Authorization": "Basic foo"})
+    assert r2.status_code == 401
+
+
+def test_get_trip_rejects_invalid_jwt():
+    """Protected route must return 401 when token is invalid or tampered."""
+    token = auth.create_access_token(999)
+    tampered = token[:-1] + ("x" if token[-1] != "x" else "y")
+    response = client.get("/trip", headers={"Authorization": f"Bearer {tampered}"})
+    assert response.status_code == 401
+
+
+def test_delete_trip_requires_valid_token():
+    """DELETE /trip must return 401 without valid token."""
+    response = client.delete("/trip")
+    assert response.status_code == 401

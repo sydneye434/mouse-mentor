@@ -1,3 +1,7 @@
+/**
+ * Developed by Sydney Edwards
+ * Single-page trip info form (destination, dates, party, etc.). Used when editing trip from TripSummary.
+ */
 import { useState, useEffect } from 'react'
 import {
   DESTINATIONS,

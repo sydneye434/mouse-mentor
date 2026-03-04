@@ -1,6 +1,8 @@
+/* Developed by Sydney Edwards */
+/* Styles for the get-to-know-you questionnaire card, steps, choices, and data-storage section */
 .get-to-know-you {
   max-width: 28rem;
-  margin-bottom: 1.5rem;
+  margin: 0 auto 1.5rem;
 }
 
 .get-to-know-you__progress {
