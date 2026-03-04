@@ -1,0 +1,21 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg-page, #0f0f12);
+  color: var(--text-primary, #e8e6e3);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
