@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --max-warnings 0 --fix",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,json,css}\" \"index.html\"",
-    "format": "prettier --write \"src/**/*.{js,jsx,json,css}\" \"index.html\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,json,css}\" \"index.html\" \"*.config.js\"",
+    "format": "prettier --write \"src/**/*.{js,jsx,json,css}\" \"index.html\" \"*.config.js\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
