@@ -2,7 +2,7 @@
  * Developed by Sydney Edwards
  * Main app: auth state, get-to-know-you flow, chat, and saved trip. Uses proxy in dev for API.
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import MentorWandIcon from './MentorWandIcon.jsx'
 import MickeyIcon from './MickeyIcon.jsx'
 import GetToKnowYou from './components/GetToKnowYou.jsx'
@@ -88,11 +88,16 @@ export default function App() {
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [theme, setTheme] = useState(() => getStoredTheme() || 'light')
+  const messagesEndRef = useRef(null)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     setStoredTheme(theme)
   }, [theme])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
 
   function toggleTheme() {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
@@ -525,6 +530,7 @@ export default function App() {
               <p className="message-text">{msg.text}</p>
             </div>
           ))}
+          <div ref={messagesEndRef} aria-hidden />
         </div>
 
         {!showTripForm && (

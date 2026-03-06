@@ -67,7 +67,7 @@ This runs the backend and frontend in one terminal; both still auto-reload on fi
 4. You’ll see the **get-to-know-you** flow: answer a few questions (destination, dates, who’s going, where you want to stay, first visit or returning, vibe, and anything else). You can choose **Skip for now** to go straight to chat, or complete the steps and click **Next** through to the last step.
 5. The final step (step 8) is **Save your trip on the server?** — If you’re **not signed in**, you’ll see **Sign in to save your trip**; after signing in you can turn on the save option. If you’re **signed in**, a checkbox is off by default; an **info icon (ℹ)** explains that data is linked to your account. Only when you turn it on will your trip be stored so you can return to it from any device.
 6. After you click **Start planning**, the main **chat** view appears. If you’re signed in and opted in to save, you’ll see: “FYI — you chose to save your data on the backend, so we are.” You can **Delete my saved data** at any time (with confirmation: “Yes, really delete all my data from the backend servers”).
-7. Type a message and click **Send** to talk to the assistant (the backend returns a placeholder reply until you add an LLM). Your trip details are sent with each message so responses can be personalized.
+7. Type a message and click **Send** to talk to the assistant. The backend uses **Groq** (default, free) or **Google Gemini** plus **web search** (DuckDuckGo) so answers use your trip details and up-to-date public information. Set **GROQ_API_KEY** or **GEMINI_API_KEY** in the backend (see below).
 
 **URLs at a glance:**
 
@@ -88,6 +88,36 @@ VITE_API_URL=http://localhost:8000
 ```
 
 Replace the URL as needed, then restart the frontend (`npm run dev`). **In development, if you do not set `VITE_API_URL`, the app uses relative URLs and Vite proxies `/auth`, `/chat`, `/trip`, and `/health` to `http://localhost:8000`** — so keep the backend running on port 8000.
+
+## Backend AI (chat)
+
+The `/chat` endpoint uses:
+
+- **Your trip info** — destination, dates, party, priorities, etc., so answers are personalized.
+- **Web search** — DuckDuckGo is queried for the latest public info (e.g. park hours, dining, tips) and snippets are passed to the model.
+- **Groq (default) or Google Gemini** — set `AI_PROVIDER=groq` (default) or `AI_PROVIDER=gemini` in `.env`. Both have free tiers.
+
+**Setup (Groq, default):**
+
+1. Get a free API key at [console.groq.com](https://console.groq.com).
+2. In the `backend` folder, copy `.env.example` to `.env` if needed, then set:
+   ```bash
+   AI_PROVIDER=groq
+   GROQ_API_KEY=your-groq-key-here
+   ```
+3. Restart the backend.
+
+**Using Gemini instead:**
+
+1. Get a free API key at [aistudio.google.com](https://aistudio.google.com).
+2. In `backend/.env` set:
+   ```bash
+   AI_PROVIDER=gemini
+   GEMINI_API_KEY=your-gemini-key-here
+   ```
+3. Restart the backend.
+
+Optional: set `GROQ_MODEL` (e.g. `llama-3.3-70b-versatile`) or `GEMINI_MODEL` (e.g. `gemini-2.0-flash`) in `.env`. If the chosen provider’s API key is not set, the chat will ask you to add it.
 
 ## Frontend scripts
 

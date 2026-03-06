@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 import auth
 import store
+from ai import generate_reply as ai_generate_reply
 
 app = FastAPI(title="Mouse Mentor API")
 
@@ -160,45 +161,13 @@ def chat(
     trip = request.trip_info
 
     if last and last.text.strip():
-        if trip:
-            dest = (
-                "Walt Disney World"
-                if trip.destination == "disney-world"
-                else "Disneyland"
-            )
-            party = trip.number_of_adults + trip.number_of_children
-            days = trip.length_of_stay_days or (
-                _days_between(trip.arrival_date, trip.departure_date)
-                if trip.arrival_date and trip.departure_date
-                else None
-            )
-            context = f"Your trip: {dest}, {party} guest(s)"
-            if trip.child_ages:
-                context += f", kids age ranges: {', '.join(trip.child_ages)}"
-            if days:
-                context += f", {days} day(s)"
-            if trip.dates_flexible:
-                context += ", flexible dates"
-            elif trip.arrival_date:
-                context += f", arriving {trip.arrival_date}"
-            if trip.priorities:
-                context += f", priorities: {', '.join(trip.priorities)}"
-            if trip.on_site is not None:
-                context += ", on-site" if trip.on_site else ", off-site"
-            if trip.resort_tier:
-                context += f", {trip.resort_tier} resort"
-            if trip.first_visit is not None:
-                context += ", first visit" if trip.first_visit else ", returning"
-            if trip.special_occasion:
-                context += f", celebrating {trip.special_occasion}"
-            if trip.trip_pace:
-                context += f", pace: {trip.trip_pace}"
-            if trip.dietary_notes:
-                context += f", dietary: {trip.dietary_notes}"
-            context += ". "
-            reply = f"{context}You asked: {last.text} I'll use this to personalize tips once we add an assistant."
-        else:
-            reply = f"(Placeholder) You said: {last.text}"
+        messages_payload = [{"role": m.role, "text": m.text} for m in request.messages]
+        trip_dict = trip.model_dump() if trip else None
+        reply = ai_generate_reply(
+            messages=messages_payload,
+            trip_info=trip_dict,
+            use_web_search=True,
+        )
     else:
         reply = "Share your trip details above, then ask about parks, hotels, dining, or dates."
     return ChatResponse(reply=reply)
