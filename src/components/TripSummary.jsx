@@ -9,6 +9,10 @@ import {
   RESORT_TIER_OPTIONS,
   TRIP_PACE_OPTIONS,
   SPECIAL_OCCASION_OPTIONS,
+  FLEXIBLE_TRAVEL_PERIOD_OPTIONS,
+  BUDGET_VIBE_OPTIONS,
+  RIDE_PREFERENCE_OPTIONS,
+  GENIE_PLUS_OPTIONS,
 } from '../tripInfo'
 import './TripInfoForm.css'
 
@@ -45,6 +49,10 @@ export default function TripSummary({ trip, onEdit }) {
   }
   if (trip.datesFlexible) {
     parts.push('flexible dates')
+    if (trip.flexibleTravelPeriod) {
+      const lbl = labelFor(trip.flexibleTravelPeriod, FLEXIBLE_TRAVEL_PERIOD_OPTIONS)
+      if (lbl && lbl !== 'No preference') parts.push(lbl)
+    }
   } else if (trip.arrivalDate && trip.departureDate) {
     parts.push(
       `${formatDate(trip.arrivalDate)} – ${formatDate(trip.departureDate)}`
@@ -54,6 +62,9 @@ export default function TripSummary({ trip, onEdit }) {
     parts.push(
       `${trip.lengthOfStayDays} day${trip.lengthOfStayDays !== 1 ? 's' : ''}`
     )
+  }
+  if (trip.parkDays) {
+    parts.push(`${trip.parkDays} park day${trip.parkDays !== 1 ? 's' : ''}`)
   }
   if (trip.priorities?.length) {
     parts.push(
@@ -71,6 +82,9 @@ export default function TripSummary({ trip, onEdit }) {
       `celebrating ${labelFor(trip.specialOccasion, SPECIAL_OCCASION_OPTIONS)}`
     )
   if (trip.tripPace) parts.push(labelFor(trip.tripPace, TRIP_PACE_OPTIONS))
+  if (trip.budgetVibe) parts.push(labelFor(trip.budgetVibe, BUDGET_VIBE_OPTIONS))
+  if (trip.ridePreference) parts.push(labelFor(trip.ridePreference, RIDE_PREFERENCE_OPTIONS))
+  if (trip.geniePlusInterest) parts.push(labelFor(trip.geniePlusInterest, GENIE_PLUS_OPTIONS))
   if (trip.dietaryNotes) parts.push(`dietary: ${trip.dietaryNotes}`)
 
   return (

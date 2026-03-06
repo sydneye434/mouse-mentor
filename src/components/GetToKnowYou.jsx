@@ -13,6 +13,10 @@ import {
   RESORT_TIER_OPTIONS,
   TRIP_PACE_OPTIONS,
   SPECIAL_OCCASION_OPTIONS,
+  FLEXIBLE_TRAVEL_PERIOD_OPTIONS,
+  BUDGET_VIBE_OPTIONS,
+  RIDE_PREFERENCE_OPTIONS,
+  GENIE_PLUS_OPTIONS,
 } from '../tripInfo'
 import './GetToKnowYou.css'
 
@@ -25,6 +29,7 @@ const STEPS = [
   { id: 'stay', title: 'Where do you want to stay?' },
   { id: 'first-time', title: 'First time or coming back?' },
   { id: 'vibe', title: "What's your vibe?" },
+  { id: 'details', title: 'A few more details' },
   { id: 'extra', title: 'Anything else we should know?' },
   { id: 'save', title: 'Save your trip?' },
 ]
@@ -49,12 +54,17 @@ export default function GetToKnowYou({
     numberOfChildren: initialTrip?.numberOfChildren ?? 0,
     childAges: initialTrip?.childAges ?? [],
     datesFlexible: initialTrip?.datesFlexible ?? false,
+    flexibleTravelPeriod: initialTrip?.flexibleTravelPeriod ?? '',
+    parkDays: initialTrip?.parkDays ?? '',
     onSite: initialTrip?.onSite ?? null,
     resortTier: initialTrip?.resortTier ?? '',
     firstVisit: initialTrip?.firstVisit ?? null,
     specialOccasion: initialTrip?.specialOccasion ?? '',
     priorities: initialTrip?.priorities ?? [],
     tripPace: initialTrip?.tripPace ?? '',
+    budgetVibe: initialTrip?.budgetVibe ?? '',
+    ridePreference: initialTrip?.ridePreference ?? '',
+    geniePlusInterest: initialTrip?.geniePlusInterest ?? '',
     dietaryNotes: initialTrip?.dietaryNotes ?? '',
     ...initialTrip,
   }))
@@ -100,6 +110,7 @@ export default function GetToKnowYou({
     const ages = trip.childAges
       .slice(0, numChildren)
       .filter((a) => a !== undefined && a !== '')
+    const parkDaysNum = trip.parkDays === '' || trip.parkDays == null ? undefined : Number(trip.parkDays)
     onSubmit({
       ...trip,
       arrivalDate: arrival,
@@ -109,6 +120,11 @@ export default function GetToKnowYou({
       resortTier: trip.resortTier || undefined,
       specialOccasion: trip.specialOccasion || undefined,
       tripPace: trip.tripPace || undefined,
+      flexibleTravelPeriod: trip.flexibleTravelPeriod || undefined,
+      parkDays: parkDaysNum,
+      budgetVibe: trip.budgetVibe || undefined,
+      ridePreference: trip.ridePreference || undefined,
+      geniePlusInterest: trip.geniePlusInterest || undefined,
       dietaryNotes: trip.dietaryNotes?.trim() || undefined,
       onSite: trip.onSite,
       saveTripData,
@@ -143,7 +159,7 @@ export default function GetToKnowYou({
               Where&apos;s the magic calling you?
             </h2>
             <p className="get-to-know-you__hint">
-              Pick your destination — we&apos;ll tailor everything to it.
+              We&apos;ll tailor park hours, dining, rides, and tips to this destination.
             </p>
             <select
               className="get-to-know-you__select"
@@ -163,7 +179,7 @@ export default function GetToKnowYou({
           <>
             <h2 className="get-to-know-you__question">When are you going?</h2>
             <p className="get-to-know-you__hint">
-              No dates yet? No problem — we can still help.
+              We&apos;ll use this for crowd levels, seasonal events, and how many park days to plan.
             </p>
             <label className="get-to-know-you__checkbox">
               <input
@@ -173,6 +189,22 @@ export default function GetToKnowYou({
               />
               My dates are flexible
             </label>
+            {trip.datesFlexible && (
+              <label className="get-to-know-you__label">
+                Roughly when? (helps with crowd & event tips)
+                <select
+                  className="get-to-know-you__select"
+                  value={trip.flexibleTravelPeriod}
+                  onChange={(e) => update({ flexibleTravelPeriod: e.target.value })}
+                >
+                  {FLEXIBLE_TRAVEL_PERIOD_OPTIONS.map((o) => (
+                    <option key={o.value || 'none'} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {!trip.datesFlexible && (
               <div className="get-to-know-you__row">
                 <label className="get-to-know-you__label">
@@ -206,7 +238,7 @@ export default function GetToKnowYou({
               Who&apos;s in your crew?
             </h2>
             <p className="get-to-know-you__hint">
-              We&apos;ll suggest rides and experiences that fit your group.
+              We&apos;ll suggest rides by height, age-appropriate experiences, and dining that fits your group.
             </p>
             <div className="get-to-know-you__row">
               <label className="get-to-know-you__label">
@@ -238,7 +270,7 @@ export default function GetToKnowYou({
             </div>
             {numChildren > 0 && (
               <div className="get-to-know-you__child-ages">
-                <span className="get-to-know-you__label">Ages of children</span>
+                <span className="get-to-know-you__label">Ages of children (we use this for height requirements & age-appropriate tips)</span>
                 <div className="get-to-know-you__child-ages-inputs">
                   {trip.childAges.slice(0, numChildren).map((ageRange, i) => (
                     <label key={i} className="get-to-know-you__label">
@@ -273,7 +305,7 @@ export default function GetToKnowYou({
               Where do you want to stay?
             </h2>
             <p className="get-to-know-you__hint">
-              On-site perks are real — we&apos;ll factor this into your plan.
+              We&apos;ll factor in Early Theme Park Entry, transportation, and resort recommendations.
             </p>
             <div className="get-to-know-you__choices">
               {STAY_OPTIONS.map((o) => {
@@ -337,7 +369,7 @@ export default function GetToKnowYou({
               First time or coming back?
             </h2>
             <p className="get-to-know-you__hint">
-              We love first-timers and returning friends alike.
+              We&apos;ll adjust our advice — more how-to for first-timers, shortcuts and deeper tips for returning guests.
             </p>
             <div className="get-to-know-you__choices">
               <label
@@ -385,6 +417,9 @@ export default function GetToKnowYou({
                 ))}
               </select>
             </label>
+            <p className="get-to-know-you__hint" style={{ marginTop: '0.75rem' }}>
+              We&apos;ll suggest ways to make the celebration extra magical.
+            </p>
           </>
         )}
 
@@ -394,7 +429,7 @@ export default function GetToKnowYou({
               What&apos;s your vibe?
             </h2>
             <p className="get-to-know-you__hint">
-              Pick what matters most — we&apos;ll prioritize accordingly.
+              We&apos;ll prioritize recommendations and daily pacing from what you pick.
             </p>
             <div className="get-to-know-you__priorities">
               {PRIORITY_OPTIONS.map((o) => (
@@ -428,35 +463,105 @@ export default function GetToKnowYou({
                 ))}
               </select>
             </label>
+            <p className="get-to-know-you__hint" style={{ marginTop: '0.75rem' }}>
+              This helps us suggest how many activities per day and when to build in rest.
+            </p>
           </>
         )}
 
         {step === 7 && (
           <>
             <h2 className="get-to-know-you__question">
+              A few more details
+            </h2>
+            <p className="get-to-know-you__hint">
+              These help us recommend park days, dining, rides, and whether to explain Genie+ or Lightning Lanes.
+            </p>
+            <label className="get-to-know-you__label">
+              How many park days? (if you know)
+              <input
+                type="number"
+                className="get-to-know-you__input get-to-know-you__input--narrow"
+                min={1}
+                max={14}
+                placeholder="e.g. 4"
+                value={trip.parkDays === '' ? '' : trip.parkDays}
+                onChange={(e) => {
+                  const v = e.target.value
+                  update({ parkDays: v === '' ? '' : Number(v) || '' })
+                }}
+              />
+            </label>
+            <label className="get-to-know-you__label">
+              Budget for dining & extras
+              <select
+                className="get-to-know-you__select"
+                value={trip.budgetVibe}
+                onChange={(e) => update({ budgetVibe: e.target.value })}
+              >
+                {BUDGET_VIBE_OPTIONS.map((o) => (
+                  <option key={o.value || 'none'} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="get-to-know-you__label">
+              Ride style
+              <select
+                className="get-to-know-you__select"
+                value={trip.ridePreference}
+                onChange={(e) => update({ ridePreference: e.target.value })}
+              >
+                {RIDE_PREFERENCE_OPTIONS.map((o) => (
+                  <option key={o.value || 'none'} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="get-to-know-you__label">
+              Genie+ / Lightning Lanes
+              <select
+                className="get-to-know-you__select"
+                value={trip.geniePlusInterest}
+                onChange={(e) => update({ geniePlusInterest: e.target.value })}
+              >
+                {GENIE_PLUS_OPTIONS.map((o) => (
+                  <option key={o.value || 'none'} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
+
+        {step === 8 && (
+          <>
+            <h2 className="get-to-know-you__question">
               Anything else we should know?
             </h2>
             <p className="get-to-know-you__hint">
-              Dietary needs, must-dos, or just a note — we&apos;ve got you.
+              The more you share, the better we can personalize tips — dietary needs, must-do rides or characters, mobility or access needs, or what you&apos;re most excited about.
             </p>
             <label className="get-to-know-you__label">
-              Dietary restrictions or preferences
+              Dietary needs, must-dos, favorites, or other notes
               <textarea
                 className="get-to-know-you__textarea"
-                placeholder="e.g. vegetarian, nut allergy, gluten-free…"
+                placeholder="e.g. vegetarian, nut allergy, must ride Rise of the Resistance, meeting Mickey, wheelchair access, or one thing you're most excited about…"
                 value={trip.dietaryNotes}
                 onChange={(e) => update({ dietaryNotes: e.target.value })}
                 rows={3}
               />
             </label>
             <p className="get-to-know-you__hint" style={{ marginTop: '1rem' }}>
-              Next: we&apos;ll ask whether you want to save your trip on the
-              server.
+              Next: we&apos;ll ask whether you want to save your trip on the server.
             </p>
           </>
         )}
 
-        {step === 8 && (
+        {step === 9 && (
           <div
             className="get-to-know-you__data-storage"
             role="region"

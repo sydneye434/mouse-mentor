@@ -13,12 +13,17 @@ export function toTripInfoPayload(trip) {
     child_ages: trip.childAges?.length ? trip.childAges : null,
     length_of_stay_days: trip.lengthOfStayDays ?? null,
     dates_flexible: trip.datesFlexible ?? false,
+    flexible_travel_period: trip.flexibleTravelPeriod || null,
+    park_days: trip.parkDays ?? null,
     priorities: trip.priorities?.length ? trip.priorities : null,
     on_site: trip.onSite ?? null,
     resort_tier: trip.resortTier || null,
     first_visit: trip.firstVisit ?? null,
     special_occasion: trip.specialOccasion || null,
     trip_pace: trip.tripPace || null,
+    budget_vibe: trip.budgetVibe || null,
+    ride_preference: trip.ridePreference || null,
+    genie_plus_interest: trip.geniePlusInterest || null,
     dietary_notes: trip.dietaryNotes?.trim() || null,
   }
 }
@@ -43,6 +48,8 @@ export const PRIORITY_OPTIONS = [
   { value: 'shows', label: 'Shows & entertainment' },
   { value: 'parades', label: 'Parades & fireworks' },
   { value: 'relaxation', label: 'Relaxation & atmosphere' },
+  { value: 'shopping', label: 'Shopping & souvenirs' },
+  { value: 'table-service', label: 'Table-service / sit-down meals' },
 ]
 
 export const STAY_OPTIONS = [
@@ -71,4 +78,34 @@ export const SPECIAL_OCCASION_OPTIONS = [
   { value: 'first-visit', label: 'First visit celebration' },
   { value: 'graduation', label: 'Graduation' },
   { value: 'other', label: 'Something else' },
+]
+
+export const FLEXIBLE_TRAVEL_PERIOD_OPTIONS = [
+  { value: '', label: 'No preference' },
+  { value: 'jan-feb', label: 'Jan–Feb' },
+  { value: 'mar-may', label: 'Mar–May' },
+  { value: 'jun-aug', label: 'Jun–Aug' },
+  { value: 'sep-oct', label: 'Sep–Oct' },
+  { value: 'nov-dec', label: 'Nov–Dec' },
+]
+
+export const BUDGET_VIBE_OPTIONS = [
+  { value: '', label: 'No preference' },
+  { value: 'value', label: 'Value — keep dining & extras on the lighter side' },
+  { value: 'moderate', label: 'Moderate — mix of quick service and some splurges' },
+  { value: 'splurge', label: 'Splurge — fine dining, special experiences, no problem' },
+]
+
+export const RIDE_PREFERENCE_OPTIONS = [
+  { value: '', label: 'No preference' },
+  { value: 'thrill', label: 'Thrill-seeker — coasters and intense rides' },
+  { value: 'mix', label: 'Mix of both — thrill and family-friendly' },
+  { value: 'mild', label: 'Prefer milder rides — less intense attractions' },
+]
+
+export const GENIE_PLUS_OPTIONS = [
+  { value: '', label: 'Not sure yet' },
+  { value: 'yes', label: 'Yes — planning to use Genie+ / Lightning Lanes' },
+  { value: 'no', label: 'No — skipping for this trip' },
+  { value: 'unsure', label: 'Still deciding' },
 ]

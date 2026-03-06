@@ -117,12 +117,17 @@ class TripInfo(BaseModel):
     child_ages: Optional[List[str]] = None
     length_of_stay_days: Optional[int] = None
     dates_flexible: bool = False
+    flexible_travel_period: Optional[str] = None
+    park_days: Optional[int] = None
     priorities: Optional[List[str]] = None
     on_site: Optional[bool] = None
     resort_tier: Optional[str] = None
     first_visit: Optional[bool] = None
     special_occasion: Optional[str] = None
     trip_pace: Optional[str] = None
+    budget_vibe: Optional[str] = None
+    ride_preference: Optional[str] = None
+    genie_plus_interest: Optional[str] = None
     dietary_notes: Optional[str] = None
 
 

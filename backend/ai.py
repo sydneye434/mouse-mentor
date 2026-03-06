@@ -45,6 +45,18 @@ def _trip_context(trip: Optional[dict[str, Any]]) -> str:
         parts.append(f"Length of stay: {trip['length_of_stay_days']} days")
     if trip.get("dates_flexible"):
         parts.append("Dates are flexible")
+    if trip.get("flexible_travel_period"):
+        period = trip["flexible_travel_period"]
+        period_labels = {
+            "jan-feb": "Jan–Feb",
+            "mar-may": "Mar–May",
+            "jun-aug": "Jun–Aug",
+            "sep-oct": "Sep–Oct",
+            "nov-dec": "Nov–Dec",
+        }
+        parts.append(f"Flexible timing: {period_labels.get(period, period)}")
+    if trip.get("park_days"):
+        parts.append(f"Park days: {trip['park_days']}")
     if trip.get("priorities"):
         parts.append(f"Priorities: {', '.join(trip['priorities'])}")
     if trip.get("on_site") is not None:
@@ -57,6 +69,12 @@ def _trip_context(trip: Optional[dict[str, Any]]) -> str:
         parts.append(f"Celebrating: {trip['special_occasion']}")
     if trip.get("trip_pace"):
         parts.append(f"Pace: {trip['trip_pace']}")
+    if trip.get("budget_vibe"):
+        parts.append(f"Budget vibe: {trip['budget_vibe']}")
+    if trip.get("ride_preference"):
+        parts.append(f"Ride preference: {trip['ride_preference']}")
+    if trip.get("genie_plus_interest"):
+        parts.append(f"Genie+ / Lightning Lanes: {trip['genie_plus_interest']}")
     if trip.get("dietary_notes"):
         parts.append(f"Dietary notes: {trip['dietary_notes']}")
     return " | ".join(parts) if parts else "Trip details not specified."
@@ -165,7 +183,17 @@ def generate_reply(
 
     system_parts = [
         "You are Mouse Mentor, a friendly Disney vacation planning assistant. "
-        "Use the guest's trip details to personalize your answers. "
+        "Use the guest's trip details to personalize every answer: "
+        "destination for park-specific info; dates (or flexible_travel_period) for crowds and events; "
+        "park_days and length_of_stay for how many parks to recommend and itinerary depth; "
+        "party size and child_ages for ride height requirements, age-appropriate suggestions, and dining; "
+        "priorities to emphasize what they care about most (rides, food, characters, shows, parades, relaxation, shopping, table-service); "
+        "trip_pace to suggest how many activities per day and when to rest; "
+        "budget_vibe (value/moderate/splurge) for dining and experience recommendations; "
+        "ride_preference (thrill/mix/mild) for attraction suggestions; "
+        "genie_plus_interest to explain Genie+ or Lightning Lanes when relevant or skip when they're not using them; "
+        "first visit vs returning to tailor depth (more how-to for first-timers, shortcuts for returning); "
+        "special occasion and any notes (dietary, must-dos, characters, mobility) for restaurant and experience tips. "
         "Be concise, practical, and encouraging. "
         "If you use information from the web context, cite it naturally (e.g. 'According to recent info...'). "
         "If the guest hasn't shared trip details, suggest they fill out the trip form for better advice.",
