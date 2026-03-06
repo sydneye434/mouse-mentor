@@ -46,6 +46,19 @@ npm run dev
 
 Leave this terminal running. You should see something like: `Local: http://localhost:5173/`.
 
+**Auto-refresh:** Both servers automatically pick up changes:
+
+- **Backend:** `--reload` makes Uvicorn watch `backend/` and restart when you save Python files.
+- **Frontend:** Vite’s Hot Module Replacement (HMR) updates the browser when you save frontend files (no full reload needed for most changes).
+
+**One command (Mac/Linux):** From the project root you can start both with:
+
+```bash
+npm run dev:all
+```
+
+This runs the backend and frontend in one terminal; both still auto-reload on file changes. (On Windows, use two terminals as above.)
+
 ### 3. Access the app in your web browser
 
 1. Open your browser (Chrome, Firefox, Safari, or Edge).
@@ -78,7 +91,8 @@ Replace the URL as needed, then restart the frontend (`npm run dev`). **In devel
 
 ## Frontend scripts
 
-- `npm run dev` — start dev server (for local development)
+- `npm run dev` — start frontend dev server (HMR: auto-refresh on save)
+- `npm run dev:all` — start backend + frontend together (Mac/Linux; both auto-reload)
 - `npm run build` — build for production
 - `npm run preview` — serve the production build locally
 

@@ -21,7 +21,7 @@ describe('App', () => {
       screen.getByRole('heading', { name: /mouse mentor/i })
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/disney trip planning assistant/i)
+      screen.getByText(/where magic meets planning/i)
     ).toBeInTheDocument()
   })
 
@@ -30,7 +30,7 @@ describe('App', () => {
     render(<App />)
     await user.click(screen.getByRole('button', { name: /skip for now/i }))
     expect(
-      screen.getByText(/ask anything about planning your disney trip/i)
+      screen.getByText(/ask me anything about your disney adventure/i)
     ).toBeInTheDocument()
   })
 

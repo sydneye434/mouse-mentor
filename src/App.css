@@ -1,21 +1,24 @@
 /* Developed by Sydney Edwards */
-/* Disney-inspired, professional: refined palette and spacing for app layout, header, chat, messages */
+/* Pastel Disney: light blue & light pink palette — magical, whimsical styling */
 .app {
-  --disney-red: #b71c38;
-  --disney-red-hover: #8f162c;
-  --gold: #b8860b;
-  --gold-soft: #e8d5a3;
-  --castle: #1e3a5f;
-  --castle-light: #2c4d73;
-  --surface: #152536;
-  --surface-elevated: #1a2d42;
-  --ink: #f6f4f0;
-  --ink-muted: #9ca3af;
-  --border: rgba(44, 77, 115, 0.5);
-  --radius: 10px;
-  --radius-sm: 8px;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --disney-red: #e8a0b8;
+  --disney-red-hover: #d88ba5;
+  --gold: #c9a86c;
+  --gold-soft: #e8c4d4;
+  --castle: #a8d4f0;
+  --castle-light: #7eb8da;
+  --surface: #e8f2f8;
+  --surface-elevated: #f8f4fa;
+  --ink: #2d3748;
+  --ink-muted: #6b7280;
+  --border: rgba(168, 212, 240, 0.6);
+  --bg-input: rgba(255, 255, 255, 0.9);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 2px 8px rgba(126, 184, 218, 0.12);
+  --shadow-md: 0 6px 20px rgba(126, 184, 218, 0.18);
+  --shadow-magic: 0 4px 16px rgba(232, 160, 184, 0.2);
 
   min-height: 100vh;
   display: flex;
@@ -27,70 +30,67 @@
   content: '';
   position: fixed;
   inset: 0;
-  background: radial-gradient(
-    ellipse 70% 40% at 50% 0%,
-    rgba(30, 58, 95, 0.2) 0%,
-    transparent 55%
-  );
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% -10%,
+      rgba(200, 220, 255, 0.4) 0%,
+      rgba(232, 210, 235, 0.25) 35%,
+      rgba(168, 212, 240, 0.15) 55%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 30% at 80% 80%,
+      rgba(232, 192, 212, 0.2) 0%,
+      transparent 50%
+    );
   pointer-events: none;
   z-index: 0;
 }
 
-/* Starry background layer – SVG so stars always render */
-.starry-bg {
+/* Cloud background – light pink fluffy clouds */
+.cloud-bg {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 1;
-  animation: twinkle 6s ease-in-out infinite;
 }
 
-.starry-bg__svg {
+.cloud-bg__svg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
-.starry-bg .star {
-  animation: star-opacity 4s ease-in-out infinite;
-}
-
-.starry-bg .star:nth-child(odd) {
-  animation-delay: 0.5s;
-}
-
-.starry-bg .star:nth-child(3n) {
-  animation-delay: 1s;
-}
-
-@keyframes twinkle {
-  0%,
-  100% {
-    opacity: 0.75;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes star-opacity {
-  0%,
-  100% {
-    opacity: 0.7;
-  }
-  50% {
-    opacity: 1;
-  }
+.cloud-bg .cloud {
+  /* Motion is handled by SVG <animateTransform> inside each cloud group */
 }
 
 .header {
   position: relative;
   z-index: 2;
   flex-shrink: 0;
-  padding: 1rem 1.5rem 1rem;
-  background: var(--castle);
-  border-bottom: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
+  padding: 1rem 1.5rem 1.25rem;
+  background: linear-gradient(135deg, var(--castle) 0%, #b8dcee 100%);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 0 0 20px 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(232, 196, 212, 0.6) 50%,
+    transparent 100%
+  );
+  border-radius: 0 0 20px 20px;
+  pointer-events: none;
 }
 
 .header__row {
@@ -106,6 +106,22 @@
   gap: 0.5rem;
 }
 
+.theme-toggle {
+  padding: 0.4rem 0.5rem;
+  font-size: 1.25rem;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.6);
+  transform: scale(1.05);
+}
+
 .header__email {
   font-size: 0.8125rem;
   color: var(--ink-muted);
@@ -118,45 +134,49 @@
 .header__auth-btn {
   padding: 0.4rem 0.75rem;
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--ink);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: var(--radius-pill);
   cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .header__auth-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.6);
   border-color: var(--castle-light);
 }
 
 .logo-wrap {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
 .logo-icon {
-  color: var(--gold-soft);
+  color: #9e6b7a;
   flex-shrink: 0;
   opacity: 0.95;
+  filter: drop-shadow(0 1px 2px rgba(232, 196, 212, 0.6));
 }
 
 .logo {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #2d3748;
+  font-family: 'Nunito', system-ui, sans-serif;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .tagline {
-  margin: 0.25rem 0 0;
+  margin: 0.35rem 0 0;
   font-size: 0.8125rem;
-  color: var(--ink-muted);
-  font-weight: 400;
+  color: #7b6b7d;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .chat-main {
@@ -192,8 +212,14 @@
 
 .empty-state-icon {
   color: var(--gold-soft);
-  opacity: 0.7;
+  opacity: 0.85;
   margin-bottom: 1.25rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
 .empty-state p {
@@ -299,7 +325,7 @@
   background: var(--disney-red);
   border: none;
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: #2d3748;
   cursor: pointer;
 }
 
@@ -383,7 +409,7 @@
 .message {
   margin-bottom: 0.875rem;
   padding: 0.875rem 1rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--surface-elevated);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
@@ -392,11 +418,13 @@
 .message--user {
   background: var(--surface-elevated);
   border-color: var(--border);
-  border-left: 3px solid var(--gold);
+  border-left: 4px solid var(--gold);
+  box-shadow: var(--shadow-magic);
 }
 
 .message--assistant {
-  border-left: 3px solid var(--castle-light);
+  border-left: 4px solid var(--castle-light);
+  box-shadow: var(--shadow-sm);
 }
 
 .message-role {
@@ -437,7 +465,7 @@
   color: var(--ink);
   background: var(--surface-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
   outline: none;
   transition:
     border-color 0.15s,
@@ -450,7 +478,7 @@
 
 .input:focus {
   border-color: var(--castle-light);
-  box-shadow: 0 0 0 2px rgba(44, 77, 115, 0.2);
+  box-shadow: 0 0 0 3px rgba(126, 184, 218, 0.3);
 }
 
 .input:disabled {
@@ -461,26 +489,28 @@
 .send-btn {
   padding: 0.6875rem 1.25rem;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 700;
   font-family: inherit;
-  color: #fff;
-  background: var(--disney-red);
+  color: #2d3748;
+  background: linear-gradient(145deg, var(--disney-red) 0%, #e0b0c4 100%);
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
   cursor: pointer;
   transition:
-    background 0.15s,
-    box-shadow 0.15s;
-  box-shadow: var(--shadow-sm);
+    background 0.2s,
+    box-shadow 0.2s,
+    transform 0.15s;
+  box-shadow: var(--shadow-magic);
 }
 
 .send-btn:hover:not(:disabled) {
-  background: var(--disney-red-hover);
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(145deg, var(--disney-red-hover) 0%, #d89ab0 100%);
+  box-shadow: 0 6px 20px rgba(232, 160, 184, 0.35);
+  transform: translateY(-1px);
 }
 
 .send-btn:active:not(:disabled) {
-  transform: scale(0.99);
+  transform: translateY(0) scale(0.98);
 }
 
 .send-btn:disabled {
@@ -521,4 +551,127 @@
     transform: scale(1.1);
     opacity: 1;
   }
+}
+
+/* Dark mode – navy, black, blue (no pink); night sky with twinkling stars */
+html[data-theme='dark'] .app {
+  --disney-red: #5b8fb9;
+  --disney-red-hover: #4a7fa3;
+  --gold: #7ba3c4;
+  --gold-soft: #9eb8d4;
+  --castle: #1e2a3a;
+  --castle-light: #3d5266;
+  --surface: #0d1117;
+  --surface-elevated: #161b22;
+  --ink: #e6edf3;
+  --ink-muted: #8b9cad;
+  --border: rgba(59, 82, 102, 0.5);
+  --bg-input: rgba(22, 27, 34, 0.95);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --shadow-magic: 0 4px 16px rgba(91, 143, 185, 0.2);
+}
+
+html[data-theme='dark'] .app::before {
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% -10%,
+      rgba(30, 42, 58, 0.6) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 50% 100%,
+      rgba(15, 20, 28, 0.5) 0%,
+      transparent 50%
+    );
+}
+
+/* Night sky – twinkling stars (only visible in dark mode via JSX) */
+.night-sky {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.night-sky__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.night-star {
+  animation: star-flash 3.8s ease-in-out infinite;
+}
+
+.night-star:nth-child(odd) {
+  animation-delay: 0.4s;
+}
+
+.night-star:nth-child(3n) {
+  animation-delay: 0.9s;
+}
+
+.night-star:nth-child(5n) {
+  animation-delay: 1.4s;
+}
+
+.night-star:nth-child(7n) {
+  animation-delay: 0.2s;
+}
+
+@keyframes star-flash {
+  0%, 40%, 100% {
+    opacity: 1;
+  }
+  50%, 55% {
+    opacity: 0.08;
+  }
+}
+
+html[data-theme='dark'] .header {
+  background: linear-gradient(135deg, #1e2a3a 0%, #252f3d 100%);
+  border-bottom-color: rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme='dark'] .header::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(91, 143, 185, 0.25) 50%,
+    transparent 100%
+  );
+}
+
+html[data-theme='dark'] .logo {
+  color: #e6edf3;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme='dark'] .logo-icon {
+  color: #9eb8d4;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+html[data-theme='dark'] .tagline {
+  color: #8b9cad;
+}
+
+html[data-theme='dark'] .header__auth-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #e6edf3;
+}
+
+html[data-theme='dark'] .header__auth-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+html[data-theme='dark'] .theme-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+html[data-theme='dark'] .theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
 }

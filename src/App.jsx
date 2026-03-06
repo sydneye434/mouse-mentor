@@ -3,6 +3,7 @@
  * Main app: auth state, get-to-know-you flow, chat, and saved trip. Uses proxy in dev for API.
  */
 import { useState, useEffect, useCallback } from 'react'
+import MentorWandIcon from './MentorWandIcon.jsx'
 import MickeyIcon from './MickeyIcon.jsx'
 import GetToKnowYou from './components/GetToKnowYou.jsx'
 import TripSummary from './components/TripSummary.jsx'
@@ -14,6 +15,23 @@ const API_BASE =
   import.meta.env.VITE_API_URL ??
   (import.meta.env.DEV ? '' : 'http://localhost:8000')
 const AUTH_STORAGE_KEY = 'mouse-mentor-auth'
+const THEME_STORAGE_KEY = 'mouse-mentor-theme'
+
+function getStoredTheme() {
+  try {
+    const t =
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem(THEME_STORAGE_KEY)
+        : null
+    if (t === 'dark' || t === 'light') return t
+  } catch {}
+  return null
+}
+
+function setStoredTheme(theme) {
+  if (typeof localStorage !== 'undefined')
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
+}
 
 function getStoredUser() {
   try {
@@ -69,6 +87,16 @@ export default function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [theme, setTheme] = useState(() => getStoredTheme() || 'light')
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    setStoredTheme(theme)
+  }, [theme])
+
+  function toggleTheme() {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+  }
 
   function handleAuthSuccess(authUser) {
     setUser(authUser)
@@ -200,133 +228,160 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="starry-bg" aria-hidden>
-        <svg
-          className="starry-bg__svg"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          <defs>
-            <path
-              id="star-shape"
-              d="M0-1 L.31-.24 .95-.31 .12.37 .59.81-.4.12-.59.81-.12-.37-.95-.31-.31-.24Z"
-              fill="inherit"
+      {theme === 'light' && (
+        <div className="cloud-bg" aria-hidden>
+          <svg
+            className="cloud-bg__svg"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+          {/* Fluffy cloud 1 – right to left, appears from right */}
+          <g className="cloud cloud--1">
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="120 0; -25 0"
+              dur="60s"
+              repeatCount="indefinite"
             />
-          </defs>
-          <g
-            className="star"
-            transform="translate(8, 12) scale(0.6)"
-            fill="rgba(255,255,255,0.85)"
-          >
-            <use href="#star-shape" />
+            <ellipse cx="20" cy="25" rx="14" ry="9" fill="rgba(248, 218, 230, 0.8)" />
+            <ellipse cx="28" cy="22" rx="12" ry="8" fill="rgba(248, 218, 230, 0.8)" />
+            <ellipse cx="35" cy="26" rx="13" ry="8" fill="rgba(248, 218, 230, 0.8)" />
+            <ellipse cx="25" cy="28" rx="11" ry="7" fill="rgba(248, 218, 230, 0.8)" />
           </g>
-          <g
-            className="star"
-            transform="translate(22, 35) scale(0.5)"
-            fill="rgba(255,255,255,0.75)"
-          >
-            <use href="#star-shape" />
+          {/* Fluffy cloud 2 */}
+          <g className="cloud cloud--2">
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="120 0; -25 0"
+              dur="60s"
+              repeatCount="indefinite"
+              begin="-10s"
+            />
+            <ellipse cx="65" cy="18" rx="16" ry="10" fill="rgba(245, 220, 232, 0.75)" />
+            <ellipse cx="75" cy="16" rx="14" ry="9" fill="rgba(245, 220, 232, 0.75)" />
+            <ellipse cx="82" cy="20" rx="12" ry="8" fill="rgba(245, 220, 232, 0.75)" />
+            <ellipse cx="70" cy="22" rx="13" ry="8" fill="rgba(245, 220, 232, 0.75)" />
           </g>
-          <g
-            className="star"
-            transform="translate(48, 6) scale(0.65)"
-            fill="rgba(255,255,255,0.9)"
-          >
-            <use href="#star-shape" />
+          {/* Fluffy cloud 3 */}
+          <g className="cloud cloud--3">
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="120 0; -25 0"
+              dur="60s"
+              repeatCount="indefinite"
+              begin="-20s"
+            />
+            <ellipse cx="45" cy="55" rx="18" ry="11" fill="rgba(250, 225, 235, 0.7)" />
+            <ellipse cx="58" cy="52" rx="15" ry="10" fill="rgba(250, 225, 235, 0.7)" />
+            <ellipse cx="68" cy="56" rx="14" ry="9" fill="rgba(250, 225, 235, 0.7)" />
+            <ellipse cx="52" cy="58" rx="16" ry="9" fill="rgba(250, 225, 235, 0.7)" />
           </g>
-          <g
-            className="star"
-            transform="translate(68, 48) scale(0.5)"
-            fill="rgba(255,255,255,0.7)"
-          >
-            <use href="#star-shape" />
+          {/* Fluffy cloud 4 */}
+          <g className="cloud cloud--4">
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="120 0; -25 0"
+              dur="60s"
+              repeatCount="indefinite"
+              begin="-30s"
+            />
+            <ellipse cx="8" cy="62" rx="15" ry="10" fill="rgba(248, 215, 228, 0.75)" />
+            <ellipse cx="18" cy="58" rx="13" ry="8" fill="rgba(248, 215, 228, 0.75)" />
+            <ellipse cx="25" cy="63" rx="12" ry="8" fill="rgba(248, 215, 228, 0.75)" />
           </g>
-          <g
-            className="star"
-            transform="translate(88, 18) scale(0.6)"
-            fill="rgba(255,255,255,0.8)"
-          >
-            <use href="#star-shape" />
+          {/* Fluffy cloud 5 */}
+          <g className="cloud cloud--5">
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="120 0; -25 0"
+              dur="60s"
+              repeatCount="indefinite"
+              begin="-40s"
+            />
+            <ellipse cx="78" cy="72" rx="14" ry="9" fill="rgba(246, 222, 232, 0.75)" />
+            <ellipse cx="88" cy="70" rx="12" ry="8" fill="rgba(246, 222, 232, 0.75)" />
+            <ellipse cx="92" cy="76" rx="10" ry="7" fill="rgba(246, 222, 232, 0.75)" />
+            <ellipse cx="82" cy="75" rx="11" ry="7" fill="rgba(246, 222, 232, 0.75)" />
           </g>
-          <g
-            className="star"
-            transform="translate(12, 62) scale(0.45)"
-            fill="rgba(255,255,255,0.65)"
-          >
-            <use href="#star-shape" />
-          </g>
-          <g
-            className="star"
-            transform="translate(35, 78) scale(0.6)"
-            fill="rgba(255,255,255,0.75)"
-          >
-            <use href="#star-shape" />
-          </g>
-          <g
-            className="star"
-            transform="translate(58, 65) scale(0.5)"
-            fill="rgba(255,255,255,0.7)"
-          >
-            <use href="#star-shape" />
-          </g>
-          <g
-            className="star"
-            transform="translate(85, 82) scale(0.6)"
-            fill="rgba(255,255,255,0.55)"
-          >
-            <use href="#star-shape" />
-          </g>
-          <g
-            className="star"
-            transform="translate(4, 40) scale(0.45)"
-            fill="rgba(255,255,255,0.6)"
-          >
-            <use href="#star-shape" />
-          </g>
-          <g
-            className="star"
-            transform="translate(42, 25) scale(0.5)"
-            fill="rgba(255,255,255,0.7)"
-          >
-            <use href="#star-shape" />
-          </g>
-          <g
-            className="star"
-            transform="translate(92, 52) scale(0.45)"
-            fill="rgba(255,255,255,0.5)"
-          >
-            <use href="#star-shape" />
-          </g>
-          <g
-            className="star"
-            transform="translate(18, 88) scale(0.5)"
-            fill="rgba(255,255,255,0.5)"
-          >
-            <use href="#star-shape" />
-          </g>
-          <g
-            className="star"
-            transform="translate(75, 28) scale(0.45)"
-            fill="rgba(255,255,255,0.6)"
-          >
-            <use href="#star-shape" />
-          </g>
-          <g
-            className="star"
-            transform="translate(55, 92) scale(0.6)"
-            fill="rgba(255,255,255,0.55)"
-          >
-            <use href="#star-shape" />
+          {/* Fluffy cloud 6 */}
+          <g className="cloud cloud--6">
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="120 0; -25 0"
+              dur="60s"
+              repeatCount="indefinite"
+              begin="-50s"
+            />
+            <ellipse cx="32" cy="82" rx="13" ry="8" fill="rgba(247, 218, 228, 0.7)" />
+            <ellipse cx="42" cy="79" rx="11" ry="7" fill="rgba(247, 218, 228, 0.7)" />
+            <ellipse cx="48" cy="84" rx="12" ry="7" fill="rgba(247, 218, 228, 0.7)" />
           </g>
         </svg>
       </div>
+      )}
+
+      {theme === 'dark' && (
+        <div className="night-sky" aria-hidden>
+          <svg
+            className="night-sky__svg"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              {/* 5-pointed star icon (clear outline, not a dot) */}
+              <path
+                id="night-star-shape"
+                d="M0 -1 L 0.29 -0.31 L 0.95 -0.31 L 0.47 0.12 L 0.59 0.81 L 0 0.38 L -0.59 0.81 L -0.47 0.12 L -0.95 -0.31 L -0.29 -0.31 Z"
+                fill="inherit"
+              />
+            </defs>
+            {[
+              [8, 12], [22, 35], [48, 6], [68, 48], [88, 18], [12, 62], [35, 78],
+              [58, 65], [85, 82], [4, 40], [42, 25], [92, 52], [18, 88], [75, 28],
+              [55, 92], [30, 20], [60, 45], [15, 55], [80, 70], [50, 85], [5, 75],
+              [95, 35], [72, 8], [25, 42], [88, 58], [10, 12], [45, 68], [65, 22],
+              [38, 92], [92, 78], [2, 28], [55, 5], [18, 38], [78, 95], [52, 15],
+              [70, 50], [33, 60], [90, 40], [14, 72], [62, 30], [40, 85],
+            ].map(([x, y], i) => {
+              const size = i % 4 === 0 ? 'large' : i % 3 === 0 ? 'medium' : 'small'
+              const scale = size === 'large' ? 0.38 : size === 'medium' ? 0.28 : 0.22
+              return (
+                <g
+                  key={`${x}-${y}`}
+                  className={`night-star night-star--${size}`}
+                  transform={`translate(${x}, ${y}) scale(${scale})`}
+                  fill="rgba(255, 255, 255, 0.92)"
+                >
+                  <use href="#night-star-shape" />
+                </g>
+              )
+            })}
+          </svg>
+        </div>
+      )}
+
       <header className="header">
         <div className="header__row">
           <div className="logo-wrap">
-            <MickeyIcon className="logo-icon" size={28} />
+            <MentorWandIcon className="logo-icon" size={28} />
             <h1 className="logo">Mouse Mentor</h1>
           </div>
           <div className="header__auth">
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             {user ? (
               <>
                 <span className="header__email">{user.email}</span>
@@ -349,7 +404,7 @@ export default function App() {
             )}
           </div>
         </div>
-        <p className="tagline">Disney trip planning assistant</p>
+        <p className="tagline">Where magic meets planning ✨</p>
       </header>
 
       {showAuthModal && (
@@ -447,18 +502,18 @@ export default function App() {
           {messages.length === 0 && !showTripForm && (
             <div className="empty-state">
               <MickeyIcon className="empty-state-icon" size={44} />
-              <p>Ask anything about planning your Disney trip.</p>
+              <p>Ask me anything about your Disney adventure.</p>
               <p className="empty-hint">
-                Parks, hotels, dining, or best times to visit—I’ll use your trip
-                details to personalize advice.
+                Parks, resorts, dining & more—I’ll use your trip details to make
+                it magical.
               </p>
             </div>
           )}
           {messages.length === 0 && showTripForm && (
             <div className="empty-state empty-state--minimal">
               <p className="empty-hint">
-                Answer a few quick questions so we can personalize your plan —
-                or skip to start chatting.
+                Answer a few quick questions so we can make your visit
+                magical—or skip to start chatting.
               </p>
             </div>
           )}

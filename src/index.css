@@ -14,10 +14,16 @@ html {
 
 body {
   margin: 0;
-  font-family: 'DM Sans', system-ui, sans-serif;
-  background: #152536;
-  color: #f6f4f0;
+  font-family: 'Nunito', 'DM Sans', system-ui, sans-serif;
+  background: #e8f2f8;
+  color: #2d3748;
   min-height: 100vh;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+html[data-theme='dark'] body {
+  background: #0d1117;
+  color: #e6edf3;
 }
 
 #root {

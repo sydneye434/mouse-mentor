@@ -537,7 +537,7 @@ export default function GetToKnowYou({
             className="get-to-know-you__btn get-to-know-you__btn--primary"
             onClick={isDone ? buildAndSubmit : next}
           >
-            {isDone ? 'Start planning' : 'Next'}
+            {isDone ? 'Start my adventure' : 'Next'}
           </button>
         </div>
       </div>
