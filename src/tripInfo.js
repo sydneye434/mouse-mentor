@@ -92,8 +92,14 @@ export const FLEXIBLE_TRAVEL_PERIOD_OPTIONS = [
 export const BUDGET_VIBE_OPTIONS = [
   { value: '', label: 'No preference' },
   { value: 'value', label: 'Value — keep dining & extras on the lighter side' },
-  { value: 'moderate', label: 'Moderate — mix of quick service and some splurges' },
-  { value: 'splurge', label: 'Splurge — fine dining, special experiences, no problem' },
+  {
+    value: 'moderate',
+    label: 'Moderate — mix of quick service and some splurges',
+  },
+  {
+    value: 'splurge',
+    label: 'Splurge — fine dining, special experiences, no problem',
+  },
 ]
 
 export const RIDE_PREFERENCE_OPTIONS = [

@@ -29,8 +29,14 @@ function getStoredTheme() {
 }
 
 function setStoredTheme(theme) {
-  if (typeof localStorage !== 'undefined')
-    localStorage.setItem(THEME_STORAGE_KEY, theme)
+  try {
+    if (
+      typeof localStorage !== 'undefined' &&
+      typeof localStorage.setItem === 'function'
+    ) {
+      localStorage.setItem(THEME_STORAGE_KEY, theme)
+    }
+  } catch (_) {}
 }
 
 function getStoredUser() {
@@ -47,10 +53,17 @@ function getStoredUser() {
 }
 
 function setStoredUser(user) {
-  if (typeof localStorage !== 'undefined') {
-    if (user) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user))
-    else localStorage.removeItem(AUTH_STORAGE_KEY)
-  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      if (
+        typeof localStorage.setItem === 'function' &&
+        typeof localStorage.removeItem === 'function'
+      ) {
+        if (user) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user))
+        else localStorage.removeItem(AUTH_STORAGE_KEY)
+      }
+    }
+  } catch (_) {}
 }
 
 /** Map backend snake_case trip to frontend camelCase */
@@ -101,7 +114,10 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = messagesEndRef.current
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages, loading])
 
   function toggleTheme() {
@@ -245,95 +261,227 @@ export default function App() {
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
           >
-          {/* Fluffy cloud 1 – right to left, appears from right */}
-          <g className="cloud cloud--1">
-            <animateTransform
-              attributeName="transform"
-              type="translate"
-              values="120 0; -25 0"
-              dur="60s"
-              repeatCount="indefinite"
-            />
-            <ellipse cx="20" cy="25" rx="14" ry="9" fill="rgba(248, 218, 230, 0.8)" />
-            <ellipse cx="28" cy="22" rx="12" ry="8" fill="rgba(248, 218, 230, 0.8)" />
-            <ellipse cx="35" cy="26" rx="13" ry="8" fill="rgba(248, 218, 230, 0.8)" />
-            <ellipse cx="25" cy="28" rx="11" ry="7" fill="rgba(248, 218, 230, 0.8)" />
-          </g>
-          {/* Fluffy cloud 2 */}
-          <g className="cloud cloud--2">
-            <animateTransform
-              attributeName="transform"
-              type="translate"
-              values="120 0; -25 0"
-              dur="60s"
-              repeatCount="indefinite"
-              begin="-10s"
-            />
-            <ellipse cx="65" cy="18" rx="16" ry="10" fill="rgba(245, 220, 232, 0.75)" />
-            <ellipse cx="75" cy="16" rx="14" ry="9" fill="rgba(245, 220, 232, 0.75)" />
-            <ellipse cx="82" cy="20" rx="12" ry="8" fill="rgba(245, 220, 232, 0.75)" />
-            <ellipse cx="70" cy="22" rx="13" ry="8" fill="rgba(245, 220, 232, 0.75)" />
-          </g>
-          {/* Fluffy cloud 3 */}
-          <g className="cloud cloud--3">
-            <animateTransform
-              attributeName="transform"
-              type="translate"
-              values="120 0; -25 0"
-              dur="60s"
-              repeatCount="indefinite"
-              begin="-20s"
-            />
-            <ellipse cx="45" cy="55" rx="18" ry="11" fill="rgba(250, 225, 235, 0.7)" />
-            <ellipse cx="58" cy="52" rx="15" ry="10" fill="rgba(250, 225, 235, 0.7)" />
-            <ellipse cx="68" cy="56" rx="14" ry="9" fill="rgba(250, 225, 235, 0.7)" />
-            <ellipse cx="52" cy="58" rx="16" ry="9" fill="rgba(250, 225, 235, 0.7)" />
-          </g>
-          {/* Fluffy cloud 4 */}
-          <g className="cloud cloud--4">
-            <animateTransform
-              attributeName="transform"
-              type="translate"
-              values="120 0; -25 0"
-              dur="60s"
-              repeatCount="indefinite"
-              begin="-30s"
-            />
-            <ellipse cx="8" cy="62" rx="15" ry="10" fill="rgba(248, 215, 228, 0.75)" />
-            <ellipse cx="18" cy="58" rx="13" ry="8" fill="rgba(248, 215, 228, 0.75)" />
-            <ellipse cx="25" cy="63" rx="12" ry="8" fill="rgba(248, 215, 228, 0.75)" />
-          </g>
-          {/* Fluffy cloud 5 */}
-          <g className="cloud cloud--5">
-            <animateTransform
-              attributeName="transform"
-              type="translate"
-              values="120 0; -25 0"
-              dur="60s"
-              repeatCount="indefinite"
-              begin="-40s"
-            />
-            <ellipse cx="78" cy="72" rx="14" ry="9" fill="rgba(246, 222, 232, 0.75)" />
-            <ellipse cx="88" cy="70" rx="12" ry="8" fill="rgba(246, 222, 232, 0.75)" />
-            <ellipse cx="92" cy="76" rx="10" ry="7" fill="rgba(246, 222, 232, 0.75)" />
-            <ellipse cx="82" cy="75" rx="11" ry="7" fill="rgba(246, 222, 232, 0.75)" />
-          </g>
-          {/* Fluffy cloud 6 */}
-          <g className="cloud cloud--6">
-            <animateTransform
-              attributeName="transform"
-              type="translate"
-              values="120 0; -25 0"
-              dur="60s"
-              repeatCount="indefinite"
-              begin="-50s"
-            />
-            <ellipse cx="32" cy="82" rx="13" ry="8" fill="rgba(247, 218, 228, 0.7)" />
-            <ellipse cx="42" cy="79" rx="11" ry="7" fill="rgba(247, 218, 228, 0.7)" />
-            <ellipse cx="48" cy="84" rx="12" ry="7" fill="rgba(247, 218, 228, 0.7)" />
-          </g>
-        </svg>
-      </div>
+            {/* Fluffy cloud 1 – right to left, appears from right */}
+            <g className="cloud cloud--1">
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                values="120 0; -25 0"
+                dur="60s"
+                repeatCount="indefinite"
+              />
+              <ellipse
+                cx="20"
+                cy="25"
+                rx="14"
+                ry="9"
+                fill="rgba(248, 218, 230, 0.8)"
+              />
+              <ellipse
+                cx="28"
+                cy="22"
+                rx="12"
+                ry="8"
+                fill="rgba(248, 218, 230, 0.8)"
+              />
+              <ellipse
+                cx="35"
+                cy="26"
+                rx="13"
+                ry="8"
+                fill="rgba(248, 218, 230, 0.8)"
+              />
+              <ellipse
+                cx="25"
+                cy="28"
+                rx="11"
+                ry="7"
+                fill="rgba(248, 218, 230, 0.8)"
+              />
+            </g>
+            {/* Fluffy cloud 2 */}
+            <g className="cloud cloud--2">
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                values="120 0; -25 0"
+                dur="60s"
+                repeatCount="indefinite"
+                begin="-10s"
+              />
+              <ellipse
+                cx="65"
+                cy="18"
+                rx="16"
+                ry="10"
+                fill="rgba(245, 220, 232, 0.75)"
+              />
+              <ellipse
+                cx="75"
+                cy="16"
+                rx="14"
+                ry="9"
+                fill="rgba(245, 220, 232, 0.75)"
+              />
+              <ellipse
+                cx="82"
+                cy="20"
+                rx="12"
+                ry="8"
+                fill="rgba(245, 220, 232, 0.75)"
+              />
+              <ellipse
+                cx="70"
+                cy="22"
+                rx="13"
+                ry="8"
+                fill="rgba(245, 220, 232, 0.75)"
+              />
+            </g>
+            {/* Fluffy cloud 3 */}
+            <g className="cloud cloud--3">
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                values="120 0; -25 0"
+                dur="60s"
+                repeatCount="indefinite"
+                begin="-20s"
+              />
+              <ellipse
+                cx="45"
+                cy="55"
+                rx="18"
+                ry="11"
+                fill="rgba(250, 225, 235, 0.7)"
+              />
+              <ellipse
+                cx="58"
+                cy="52"
+                rx="15"
+                ry="10"
+                fill="rgba(250, 225, 235, 0.7)"
+              />
+              <ellipse
+                cx="68"
+                cy="56"
+                rx="14"
+                ry="9"
+                fill="rgba(250, 225, 235, 0.7)"
+              />
+              <ellipse
+                cx="52"
+                cy="58"
+                rx="16"
+                ry="9"
+                fill="rgba(250, 225, 235, 0.7)"
+              />
+            </g>
+            {/* Fluffy cloud 4 */}
+            <g className="cloud cloud--4">
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                values="120 0; -25 0"
+                dur="60s"
+                repeatCount="indefinite"
+                begin="-30s"
+              />
+              <ellipse
+                cx="8"
+                cy="62"
+                rx="15"
+                ry="10"
+                fill="rgba(248, 215, 228, 0.75)"
+              />
+              <ellipse
+                cx="18"
+                cy="58"
+                rx="13"
+                ry="8"
+                fill="rgba(248, 215, 228, 0.75)"
+              />
+              <ellipse
+                cx="25"
+                cy="63"
+                rx="12"
+                ry="8"
+                fill="rgba(248, 215, 228, 0.75)"
+              />
+            </g>
+            {/* Fluffy cloud 5 */}
+            <g className="cloud cloud--5">
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                values="120 0; -25 0"
+                dur="60s"
+                repeatCount="indefinite"
+                begin="-40s"
+              />
+              <ellipse
+                cx="78"
+                cy="72"
+                rx="14"
+                ry="9"
+                fill="rgba(246, 222, 232, 0.75)"
+              />
+              <ellipse
+                cx="88"
+                cy="70"
+                rx="12"
+                ry="8"
+                fill="rgba(246, 222, 232, 0.75)"
+              />
+              <ellipse
+                cx="92"
+                cy="76"
+                rx="10"
+                ry="7"
+                fill="rgba(246, 222, 232, 0.75)"
+              />
+              <ellipse
+                cx="82"
+                cy="75"
+                rx="11"
+                ry="7"
+                fill="rgba(246, 222, 232, 0.75)"
+              />
+            </g>
+            {/* Fluffy cloud 6 */}
+            <g className="cloud cloud--6">
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                values="120 0; -25 0"
+                dur="60s"
+                repeatCount="indefinite"
+                begin="-50s"
+              />
+              <ellipse
+                cx="32"
+                cy="82"
+                rx="13"
+                ry="8"
+                fill="rgba(247, 218, 228, 0.7)"
+              />
+              <ellipse
+                cx="42"
+                cy="79"
+                rx="11"
+                ry="7"
+                fill="rgba(247, 218, 228, 0.7)"
+              />
+              <ellipse
+                cx="48"
+                cy="84"
+                rx="12"
+                ry="7"
+                fill="rgba(247, 218, 228, 0.7)"
+              />
+            </g>
+          </svg>
+        </div>
       )}
 
       {theme === 'dark' && (
@@ -352,15 +500,52 @@ export default function App() {
               />
             </defs>
             {[
-              [8, 12], [22, 35], [48, 6], [68, 48], [88, 18], [12, 62], [35, 78],
-              [58, 65], [85, 82], [4, 40], [42, 25], [92, 52], [18, 88], [75, 28],
-              [55, 92], [30, 20], [60, 45], [15, 55], [80, 70], [50, 85], [5, 75],
-              [95, 35], [72, 8], [25, 42], [88, 58], [10, 12], [45, 68], [65, 22],
-              [38, 92], [92, 78], [2, 28], [55, 5], [18, 38], [78, 95], [52, 15],
-              [70, 50], [33, 60], [90, 40], [14, 72], [62, 30], [40, 85],
+              [8, 12],
+              [22, 35],
+              [48, 6],
+              [68, 48],
+              [88, 18],
+              [12, 62],
+              [35, 78],
+              [58, 65],
+              [85, 82],
+              [4, 40],
+              [42, 25],
+              [92, 52],
+              [18, 88],
+              [75, 28],
+              [55, 92],
+              [30, 20],
+              [60, 45],
+              [15, 55],
+              [80, 70],
+              [50, 85],
+              [5, 75],
+              [95, 35],
+              [72, 8],
+              [25, 42],
+              [88, 58],
+              [10, 12],
+              [45, 68],
+              [65, 22],
+              [38, 92],
+              [92, 78],
+              [2, 28],
+              [55, 5],
+              [18, 38],
+              [78, 95],
+              [52, 15],
+              [70, 50],
+              [33, 60],
+              [90, 40],
+              [14, 72],
+              [62, 30],
+              [40, 85],
             ].map(([x, y], i) => {
-              const size = i % 4 === 0 ? 'large' : i % 3 === 0 ? 'medium' : 'small'
-              const scale = size === 'large' ? 0.38 : size === 'medium' ? 0.28 : 0.22
+              const size =
+                i % 4 === 0 ? 'large' : i % 3 === 0 ? 'medium' : 'small'
+              const scale =
+                size === 'large' ? 0.38 : size === 'medium' ? 0.28 : 0.22
               return (
                 <g
                   key={`${x}-${y}`}
@@ -387,7 +572,11 @@ export default function App() {
               type="button"
               className="theme-toggle"
               onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label={
+                theme === 'dark'
+                  ? 'Switch to light mode'
+                  : 'Switch to dark mode'
+              }
               title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
             >
               {theme === 'dark' ? '☀️' : '🌙'}

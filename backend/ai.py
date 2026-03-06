@@ -2,6 +2,7 @@
 Mouse Mentor AI: uses trip info + web search to answer Disney trip questions.
 Supports Groq (default, free) and Google Gemini. Developed by Sydney Edwards.
 """
+
 from __future__ import annotations
 
 import os
@@ -94,7 +95,9 @@ def _web_search(query: str, max_results: int = 5) -> str:
             title = r.get("title", "")
             body = r.get("body", "")
             if title or body:
-                snippets.append(f"- {title}\n  {body[:400]}{'...' if len(body) > 400 else ''}")
+                snippets.append(
+                    f"- {title}\n  {body[:400]}{'...' if len(body) > 400 else ''}"
+                )
         return "\n\n".join(snippets) if snippets else ""
     except Exception:
         return ""
@@ -120,7 +123,7 @@ def _call_groq(system_content: str, openai_messages: list[dict[str, str]]) -> st
 def _call_gemini(system_content: str, openai_messages: list[dict[str, str]]) -> str:
     """Call Google Gemini with system instruction and chat history."""
     from google import genai
-    from google.genai.types import GenerateContentConfig, Content, Part
+    from google.genai.types import Content, GenerateContentConfig, Part
 
     client = genai.Client(api_key=GEMINI_API_KEY)
     contents = []
@@ -170,7 +173,9 @@ def generate_reply(
         )
 
     trip_ctx = _trip_context(trip_info)
-    last_user = next((m["text"] for m in reversed(messages) if m.get("role") == "user"), "").strip()
+    last_user = next(
+        (m["text"] for m in reversed(messages) if m.get("role") == "user"), ""
+    ).strip()
 
     web_ctx = ""
     if use_web_search and last_user:
@@ -216,4 +221,6 @@ def generate_reply(
             return _call_groq(system_content, openai_messages)
         return _call_gemini(system_content, openai_messages)
     except Exception as e:
-        return f"I ran into an issue: {e!s}. Please try again or rephrase your question."
+        return (
+            f"I ran into an issue: {e!s}. Please try again or rephrase your question."
+        )

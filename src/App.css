@@ -116,7 +116,9 @@
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.2s, transform 0.15s;
+  transition:
+    background 0.2s,
+    transform 0.15s;
 }
 
 .theme-toggle:hover {
@@ -142,7 +144,9 @@
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .header__auth-btn:hover {
@@ -221,8 +225,13 @@
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 .empty-state p {
@@ -624,10 +633,13 @@ html[data-theme='dark'] .app::before {
 }
 
 @keyframes star-flash {
-  0%, 40%, 100% {
+  0%,
+  40%,
+  100% {
     opacity: 1;
   }
-  50%, 55% {
+  50%,
+  55% {
     opacity: 0.08;
   }
 }

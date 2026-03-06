@@ -3,6 +3,8 @@ API tests: health, chat, auth (register/login), and protected trip endpoints.
 Developed by Sydney Edwards.
 """
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 import auth
@@ -26,7 +28,11 @@ def test_chat_empty_messages():
     assert "disney" in reply or "trip" in reply or "parks" in reply
 
 
-def test_chat_with_message():
+@patch("main.ai_generate_reply")
+def test_chat_with_message(mock_generate_reply):
+    mock_generate_reply.return_value = (
+        "Best time to visit is typically off-peak. Ask me about crowds and events!"
+    )
     response = client.post(
         "/chat",
         json={
@@ -36,19 +42,16 @@ def test_chat_with_message():
     assert response.status_code == 200
     data = response.json()
     assert "reply" in data
-    assert (
-        "Placeholder" in data["reply"]
-        or "Best" in data["reply"]
-        or "visit" in data["reply"].lower()
+    assert "Best" in data["reply"] or "visit" in data["reply"].lower()
+    mock_generate_reply.assert_called_once()
+
+
+@patch("main.ai_generate_reply")
+def test_chat_with_trip_info(mock_generate_reply):
+    mock_generate_reply.return_value = (
+        "For Walt Disney World with 2 adults and 1 child over 5 days, "
+        "I'd suggest Magic Kingdom, Epcot, and Hollywood Studios. Book park reservations early!"
     )
-
-
-def test_chat_invalid_body_rejected():
-    response = client.post("/chat", json={})
-    assert response.status_code == 422
-
-
-def test_chat_with_trip_info():
     response = client.post(
         "/chat",
         json={
@@ -68,6 +71,12 @@ def test_chat_with_trip_info():
     assert "reply" in data
     assert "Walt Disney World" in data["reply"] or "disney-world" in data["reply"]
     assert "2" in data["reply"] or "3" in data["reply"]  # party size
+    mock_generate_reply.assert_called_once()
+
+
+def test_chat_invalid_body_rejected():
+    response = client.post("/chat", json={})
+    assert response.status_code == 422
 
 
 def test_chat_save_trip_requires_auth():
@@ -117,15 +126,16 @@ def test_get_trip_after_save():
         "destination": "disney-world",
         "number_of_adults": 2,
     }
-    client.post(
-        "/chat",
-        json={
-            "messages": [{"role": "user", "text": "Hi"}],
-            "trip_info": trip,
-            "save_trip": True,
-        },
-        headers=headers,
-    )
+    with patch("main.ai_generate_reply", return_value="Saved!"):
+        client.post(
+            "/chat",
+            json={
+                "messages": [{"role": "user", "text": "Hi"}],
+                "trip_info": trip,
+                "save_trip": True,
+            },
+            headers=headers,
+        )
     response = client.get("/trip", headers=headers)
     assert response.status_code == 200
     data = response.json()
@@ -137,15 +147,16 @@ def test_get_trip_after_save():
 def test_delete_trip():
     token = get_auth_token()
     headers = {"Authorization": f"Bearer {token}"}
-    client.post(
-        "/chat",
-        json={
-            "messages": [{"role": "user", "text": "Hi"}],
-            "trip_info": {"destination": "disney-world"},
-            "save_trip": True,
-        },
-        headers=headers,
-    )
+    with patch("main.ai_generate_reply", return_value="Hi!"):
+        client.post(
+            "/chat",
+            json={
+                "messages": [{"role": "user", "text": "Hi"}],
+                "trip_info": {"destination": "disney-world"},
+                "save_trip": True,
+            },
+            headers=headers,
+        )
     response = client.get("/trip", headers=headers)
     assert response.json()["trip"] is not None
     del_response = client.delete("/trip", headers=headers)

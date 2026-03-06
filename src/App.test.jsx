@@ -20,9 +20,7 @@ describe('App', () => {
     expect(
       screen.getByRole('heading', { name: /mouse mentor/i })
     ).toBeInTheDocument()
-    expect(
-      screen.getByText(/where magic meets planning/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/where magic meets planning/i)).toBeInTheDocument()
   })
 
   it('shows empty state when no messages', async () => {

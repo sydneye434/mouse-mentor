@@ -110,7 +110,10 @@ export default function GetToKnowYou({
     const ages = trip.childAges
       .slice(0, numChildren)
       .filter((a) => a !== undefined && a !== '')
-    const parkDaysNum = trip.parkDays === '' || trip.parkDays == null ? undefined : Number(trip.parkDays)
+    const parkDaysNum =
+      trip.parkDays === '' || trip.parkDays == null
+        ? undefined
+        : Number(trip.parkDays)
     onSubmit({
       ...trip,
       arrivalDate: arrival,
@@ -159,7 +162,8 @@ export default function GetToKnowYou({
               Where&apos;s the magic calling you?
             </h2>
             <p className="get-to-know-you__hint">
-              We&apos;ll tailor park hours, dining, rides, and tips to this destination.
+              We&apos;ll tailor park hours, dining, rides, and tips to this
+              destination.
             </p>
             <select
               className="get-to-know-you__select"
@@ -179,7 +183,8 @@ export default function GetToKnowYou({
           <>
             <h2 className="get-to-know-you__question">When are you going?</h2>
             <p className="get-to-know-you__hint">
-              We&apos;ll use this for crowd levels, seasonal events, and how many park days to plan.
+              We&apos;ll use this for crowd levels, seasonal events, and how
+              many park days to plan.
             </p>
             <label className="get-to-know-you__checkbox">
               <input
@@ -195,7 +200,9 @@ export default function GetToKnowYou({
                 <select
                   className="get-to-know-you__select"
                   value={trip.flexibleTravelPeriod}
-                  onChange={(e) => update({ flexibleTravelPeriod: e.target.value })}
+                  onChange={(e) =>
+                    update({ flexibleTravelPeriod: e.target.value })
+                  }
                 >
                   {FLEXIBLE_TRAVEL_PERIOD_OPTIONS.map((o) => (
                     <option key={o.value || 'none'} value={o.value}>
@@ -238,7 +245,8 @@ export default function GetToKnowYou({
               Who&apos;s in your crew?
             </h2>
             <p className="get-to-know-you__hint">
-              We&apos;ll suggest rides by height, age-appropriate experiences, and dining that fits your group.
+              We&apos;ll suggest rides by height, age-appropriate experiences,
+              and dining that fits your group.
             </p>
             <div className="get-to-know-you__row">
               <label className="get-to-know-you__label">
@@ -270,7 +278,10 @@ export default function GetToKnowYou({
             </div>
             {numChildren > 0 && (
               <div className="get-to-know-you__child-ages">
-                <span className="get-to-know-you__label">Ages of children (we use this for height requirements & age-appropriate tips)</span>
+                <span className="get-to-know-you__label">
+                  Ages of children (we use this for height requirements &
+                  age-appropriate tips)
+                </span>
                 <div className="get-to-know-you__child-ages-inputs">
                   {trip.childAges.slice(0, numChildren).map((ageRange, i) => (
                     <label key={i} className="get-to-know-you__label">
@@ -305,7 +316,8 @@ export default function GetToKnowYou({
               Where do you want to stay?
             </h2>
             <p className="get-to-know-you__hint">
-              We&apos;ll factor in Early Theme Park Entry, transportation, and resort recommendations.
+              We&apos;ll factor in Early Theme Park Entry, transportation, and
+              resort recommendations.
             </p>
             <div className="get-to-know-you__choices">
               {STAY_OPTIONS.map((o) => {
@@ -369,7 +381,8 @@ export default function GetToKnowYou({
               First time or coming back?
             </h2>
             <p className="get-to-know-you__hint">
-              We&apos;ll adjust our advice — more how-to for first-timers, shortcuts and deeper tips for returning guests.
+              We&apos;ll adjust our advice — more how-to for first-timers,
+              shortcuts and deeper tips for returning guests.
             </p>
             <div className="get-to-know-you__choices">
               <label
@@ -417,7 +430,10 @@ export default function GetToKnowYou({
                 ))}
               </select>
             </label>
-            <p className="get-to-know-you__hint" style={{ marginTop: '0.75rem' }}>
+            <p
+              className="get-to-know-you__hint"
+              style={{ marginTop: '0.75rem' }}
+            >
               We&apos;ll suggest ways to make the celebration extra magical.
             </p>
           </>
@@ -429,7 +445,8 @@ export default function GetToKnowYou({
               What&apos;s your vibe?
             </h2>
             <p className="get-to-know-you__hint">
-              We&apos;ll prioritize recommendations and daily pacing from what you pick.
+              We&apos;ll prioritize recommendations and daily pacing from what
+              you pick.
             </p>
             <div className="get-to-know-you__priorities">
               {PRIORITY_OPTIONS.map((o) => (
@@ -463,19 +480,22 @@ export default function GetToKnowYou({
                 ))}
               </select>
             </label>
-            <p className="get-to-know-you__hint" style={{ marginTop: '0.75rem' }}>
-              This helps us suggest how many activities per day and when to build in rest.
+            <p
+              className="get-to-know-you__hint"
+              style={{ marginTop: '0.75rem' }}
+            >
+              This helps us suggest how many activities per day and when to
+              build in rest.
             </p>
           </>
         )}
 
         {step === 7 && (
           <>
-            <h2 className="get-to-know-you__question">
-              A few more details
-            </h2>
+            <h2 className="get-to-know-you__question">A few more details</h2>
             <p className="get-to-know-you__hint">
-              These help us recommend park days, dining, rides, and whether to explain Genie+ or Lightning Lanes.
+              These help us recommend park days, dining, rides, and whether to
+              explain Genie+ or Lightning Lanes.
             </p>
             <label className="get-to-know-you__label">
               How many park days? (if you know)
@@ -543,7 +563,9 @@ export default function GetToKnowYou({
               Anything else we should know?
             </h2>
             <p className="get-to-know-you__hint">
-              The more you share, the better we can personalize tips — dietary needs, must-do rides or characters, mobility or access needs, or what you&apos;re most excited about.
+              The more you share, the better we can personalize tips — dietary
+              needs, must-do rides or characters, mobility or access needs, or
+              what you&apos;re most excited about.
             </p>
             <label className="get-to-know-you__label">
               Dietary needs, must-dos, favorites, or other notes
@@ -556,7 +578,8 @@ export default function GetToKnowYou({
               />
             </label>
             <p className="get-to-know-you__hint" style={{ marginTop: '1rem' }}>
-              Next: we&apos;ll ask whether you want to save your trip on the server.
+              Next: we&apos;ll ask whether you want to save your trip on the
+              server.
             </p>
           </>
         )}
