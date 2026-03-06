@@ -1,4 +1,5 @@
 # See https://pre-commit.com for more information
+# Developed by Sydney Edwards
 default_language_version:
   node: "20"
   python: python3

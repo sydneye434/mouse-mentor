@@ -1,5 +1,6 @@
 {
   "name": "mouse-mentor",
+  "author": "Sydney Edwards",
   "private": true,
   "version": "0.0.0",
   "type": "module",

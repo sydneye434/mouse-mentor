@@ -1,5 +1,7 @@
 # Why changes don't show on refresh
 
+Developed by Sydney Edwards.
+
 ## 1. Hard refresh (bypass cache)
 
 - **Mac:** `Cmd + Shift + R`  

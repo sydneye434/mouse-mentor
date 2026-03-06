@@ -1,5 +1,7 @@
 # Mouse Mentor
 
+Developed by Sydney Edwards.
+
 A web app for planning Disney trips via an AI chat assistant. Users go through a short **get-to-know-you** questionnaire (destination, dates, party, where they want to stay, first visit or returning, priorities, pace, dietary notes) or skip it, then chat with the assistant; trip details are sent with each message for personalized replies. **Saving a trip requires a user account.** On the final step (step 8: “Save your trip?”), guests can **Sign in** or **Register** (email + password); only when signed in can they opt in to save their trip. Saved data is tied to the **user account**, not to IP or browser session. An info icon (ℹ) explains this; signed-in users who opted in can delete their saved data from the chat page at any time.
 
 ## Prerequisites

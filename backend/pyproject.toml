@@ -1,3 +1,4 @@
+# Developed by Sydney Edwards
 [project]
 name = "mouse-mentor-backend"
 requires-python = ">=3.10"
