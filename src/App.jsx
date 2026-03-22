@@ -132,11 +132,15 @@ export default function App() {
   const [diningDaysUntil, setDiningDaysUntil] = useState(null)
   const [diningBookingOpened, setDiningBookingOpened] = useState(false)
   const [diningOpensAt, setDiningOpensAt] = useState(null)
+  /** Cached AI tips: undefined = not loaded yet, null = load failed, object = payload */
+  const [dashboardTips, setDashboardTips] = useState(undefined)
+  const [tipsLoading, setTipsLoading] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const checkoutHandledRef = useRef(false)
   const chatHistoryLoadedRef = useRef(false)
   const messagesEndRef = useRef(null)
+  const tipsInitialFetchRef = useRef(false)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -262,7 +266,60 @@ export default function App() {
       localStorage.removeItem(DINING_STORAGE_KEY)
     } catch {}
     chatHistoryLoadedRef.current = false
+    tipsInitialFetchRef.current = false
+    setDashboardTips(undefined)
   }, [])
+
+  const fetchDashboardTips = useCallback(
+    async (tripPayload, regenerate = false) => {
+      if (!user?.token) return
+      setTipsLoading(true)
+      try {
+        const res = await fetch(`${API_BASE}/tips/generate`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            trip_info: tripPayload,
+            regenerate,
+          }),
+        })
+        if (res.status === 401) {
+          handleLogout()
+          return
+        }
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}))
+          const detail = errJson.detail
+          const msg =
+            typeof detail === 'string'
+              ? detail
+              : `Could not load tips (${res.status})`
+          throw new Error(msg)
+        }
+        const payload = await res.json()
+        setDashboardTips(payload)
+      } catch {
+        if (!regenerate) setDashboardTips(null)
+      } finally {
+        setTipsLoading(false)
+      }
+    },
+    [user?.token, handleLogout]
+  )
+
+  const handleRegenerateDashboardTips = useCallback(async () => {
+    if (!user?.token || !tripInfo) return
+    await fetchDashboardTips(toTripInfoPayload(tripInfo), true)
+  }, [user?.token, tripInfo, fetchDashboardTips])
+
+  const handleRetryDashboardTips = useCallback(async () => {
+    if (!user?.token || !tripInfo) return
+    tipsInitialFetchRef.current = false
+    await fetchDashboardTips(toTripInfoPayload(tripInfo), false)
+  }, [user?.token, tripInfo, fetchDashboardTips])
 
   const loadSavedTrip = useCallback(async () => {
     if (!user?.token) return
@@ -299,10 +356,24 @@ export default function App() {
           )
         } catch {}
       }
+      const hasSavedTips =
+        data.generated_tips &&
+        Array.isArray(data.generated_tips.tips) &&
+        data.generated_tips.tips.length > 0
+      if (hasSavedTips) {
+        setDashboardTips(data.generated_tips)
+      } else if (data.trip) {
+        setDashboardTips(undefined)
+      }
+      if (data.trip && !hasSavedTips && !tipsInitialFetchRef.current) {
+        tipsInitialFetchRef.current = true
+        const tripPayload = toTripInfoPayload(tripFromApi(data.trip))
+        void fetchDashboardTips(tripPayload, false)
+      }
     } catch {
       // ignore
     }
-  }, [user?.token, handleLogout])
+  }, [user?.token, handleLogout, fetchDashboardTips])
 
   /** Guests: restore itinerary JSON from localStorage (no server sync). */
   useEffect(() => {
@@ -851,6 +922,8 @@ export default function App() {
         setDiningBookingOpened(false)
         setDiningOpensAt(null)
         chatHistoryLoadedRef.current = false
+        tipsInitialFetchRef.current = false
+        setDashboardTips(undefined)
       }
     } finally {
       setDeleting(false)
@@ -1695,6 +1768,10 @@ export default function App() {
             tripInfo={tripInfo}
             user={user}
             saveTripData={saveTripData}
+            aiTips={dashboardTips}
+            tipsLoading={tipsLoading}
+            onRegenerateTips={handleRegenerateDashboardTips}
+            onRetryTips={handleRetryDashboardTips}
             waitTimesData={waitTimesData}
             waitTimesLoading={waitTimesLoading}
             waitTimesError={waitTimesError}

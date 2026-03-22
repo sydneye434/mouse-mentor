@@ -29,6 +29,7 @@ import dining_recommendations as dining_rec
 import itinerary_export
 import lightning_lane_guide as ll_guide
 import store
+import trip_tips
 import wait_times
 from ai import (
     CHAT_HISTORY_WINDOW,
@@ -232,6 +233,13 @@ class DiningGenerateRequest(BaseModel):
 class DiningPatchRequest(BaseModel):
     want_to_go: Optional[list[str]] = None
     reminder_enabled: Optional[bool] = None
+
+
+class TipsGenerateRequest(BaseModel):
+    """Onboarding trip profile; optional regenerate to force new tips."""
+
+    trip_info: TripInfo
+    regenerate: bool = False
 
 
 def _sse_data(obj: dict) -> str:
@@ -651,12 +659,52 @@ async def get_saved_trip(
             "trip": None,
             "generated_itinerary": None,
             "lightning_lane_guide": None,
+            "generated_tips": None,
         }
     return {
         "trip": bundle["trip"],
         "generated_itinerary": bundle.get("generated_itinerary"),
         "lightning_lane_guide": bundle.get("lightning_lane_guide"),
+        "generated_tips": bundle.get("generated_tips"),
     }
+
+
+@app.post("/tips/generate")
+@limiter.limit("30/hour")
+async def generate_dashboard_tips(
+    request: Request,
+    body: TipsGenerateRequest,
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Return 5 personalized tips from trip onboarding. Caches per user until regenerate=True.
+    """
+    trip_dict = body.trip_info.model_dump()
+    await store.save_trip(session, user_id, trip_dict)
+    if not body.regenerate:
+        bundle = await store.get_trip_bundle(session, user_id)
+        if bundle and bundle.get("generated_tips"):
+            return bundle["generated_tips"]
+    try:
+        payload = await asyncio.to_thread(
+            trip_tips.generate_personalized_tips,
+            trip_dict,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not parse tips JSON: {e!s}",
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not generate tips: {e!s}",
+        ) from e
+    await store.set_generated_tips(session, user_id, payload)
+    return payload
 
 
 @app.delete("/trip")

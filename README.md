@@ -170,6 +170,7 @@ Optional: `GROQ_MODEL`, `GEMINI_MODEL`. Restart the backend after changes.
 - **DELETE** `/trip` — delete saved trip + messages (Bearer)  
 - **POST** `/trip/share` — returns `{ "share_token" }` for a read-only link (Bearer; saved trip required)  
 - **GET** `/public/trip/{share_token}` — trip JSON + `generated_itinerary` (no auth; 404 if invalid)  
+- **POST** `/tips/generate` — `{ trip_info, regenerate? }` → `{ generation_id, tips[] }` (Bearer); caches until `regenerate: true`  
 - **POST** `/chat` — messages + optional `trip_info`, `save_trip`; streams SSE tokens  
 
 `save_trip: true` requires a valid Bearer token. Rate limits apply to `/chat` (see `backend/.env.example` / `RATELIMIT_ENABLED`).

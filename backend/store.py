@@ -55,6 +55,7 @@ async def get_trip_bundle(
         "dining_restaurants": row.dining_restaurants,
         "dining_want_to_go": list(row.dining_want_to_go or []),
         "dining_reminder_enabled": bool(row.dining_reminder_enabled),
+        "generated_tips": row.generated_tips,
     }
 
 
@@ -68,6 +69,19 @@ async def set_generated_itinerary(
     if row is None:
         raise ValueError("No saved trip for user")
     row.generated_itinerary = itinerary
+    await session.flush()
+
+
+async def set_generated_tips(
+    session: AsyncSession, user_id: int, payload: dict[str, Any]
+) -> None:
+    result = await session.execute(
+        select(SavedTrip).where(SavedTrip.user_id == user_id)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise ValueError("No saved trip for user")
+    row.generated_tips = payload
     await session.flush()
 
 

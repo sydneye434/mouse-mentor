@@ -65,6 +65,10 @@ class SavedTrip(Base):
     dining_reminder_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
+    """Cached AI tips for dashboard: { generation_id, tips: [{ id, title, body }] }."""
+    generated_tips: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JSON, nullable=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

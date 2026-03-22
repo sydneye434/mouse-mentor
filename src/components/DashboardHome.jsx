@@ -14,8 +14,37 @@ import {
   Zap,
   UtensilsCrossed,
   Share2,
+  Lightbulb,
+  X,
+  Loader2,
 } from 'lucide-react'
 import { DESTINATIONS } from '../tripInfo'
+
+const TIPS_DISMISSED_STORAGE_KEY = 'mouse-mentor-dashboard-tips-dismissed'
+
+function readDismissedIds(generationId) {
+  if (!generationId) return new Set()
+  try {
+    const raw = localStorage.getItem(TIPS_DISMISSED_STORAGE_KEY)
+    const o = raw ? JSON.parse(raw) : {}
+    const arr = o[generationId]
+    return new Set(Array.isArray(arr) ? arr : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function persistDismissedId(generationId, tipId) {
+  try {
+    const raw = localStorage.getItem(TIPS_DISMISSED_STORAGE_KEY)
+    const o = raw ? JSON.parse(raw) : {}
+    if (!Array.isArray(o[generationId])) o[generationId] = []
+    if (!o[generationId].includes(tipId)) o[generationId].push(tipId)
+    localStorage.setItem(TIPS_DISMISSED_STORAGE_KEY, JSON.stringify(o))
+  } catch {
+    /* ignore */
+  }
+}
 
 const FIRST_TIMER_TIPS = [
   {
@@ -49,6 +78,10 @@ export default function DashboardHome({
   tripInfo,
   user,
   saveTripData,
+  aiTips,
+  tipsLoading,
+  onRegenerateTips,
+  onRetryTips,
   waitTimesData,
   waitTimesLoading,
   waitTimesError,
@@ -63,6 +96,7 @@ export default function DashboardHome({
 }) {
   const [tipIndex, setTipIndex] = useState(0)
   const [shareStatus, setShareStatus] = useState('idle')
+  const [dismissedTipIds, setDismissedTipIds] = useState(() => new Set())
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -70,6 +104,15 @@ export default function DashboardHome({
     }, 8000)
     return () => clearInterval(t)
   }, [])
+
+  useEffect(() => {
+    const gid = aiTips?.generation_id
+    if (!gid) {
+      setDismissedTipIds(new Set())
+      return
+    }
+    setDismissedTipIds(readDismissedIds(gid))
+  }, [aiTips?.generation_id])
 
   const destLabel =
     DESTINATIONS.find((d) => d.value === tripInfo?.destination)?.label ??
@@ -95,6 +138,17 @@ export default function DashboardHome({
 
   const shortest =
     waitTimesData?.top10_shortest?.slice(0, 5) ?? []
+
+  const showAiTipsSection = !!(user?.token && tripInfo && saveTripData)
+  const visibleAiTips =
+    aiTips?.tips?.filter((t) => t?.id && !dismissedTipIds.has(t.id)) ?? []
+
+  function dismissAiTip(tipId) {
+    const gid = aiTips?.generation_id
+    if (!gid) return
+    persistDismissedId(gid, tipId)
+    setDismissedTipIds((prev) => new Set([...prev, tipId]))
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-5 pb-8 pt-2">
@@ -204,6 +258,107 @@ export default function DashboardHome({
           </div>
         )}
       </section>
+
+      {/* AI personalized tips */}
+      {showAiTipsSection && (
+        <section
+          className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-5 shadow-sm"
+          aria-labelledby="dash-ai-tips-heading"
+        >
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3
+                id="dash-ai-tips-heading"
+                className="flex items-center gap-2 font-display text-lg font-semibold text-[var(--color-text-heading)]"
+              >
+                <Lightbulb
+                  className="h-5 w-5 text-amber-500"
+                  aria-hidden
+                />
+                Tips for your trip
+              </h3>
+              <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                Personalized ideas from your planner answers—characters, rides,
+                pacing, and more.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void onRegenerateTips?.()}
+              disabled={tipsLoading}
+              className="shrink-0 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-bg-page)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-heading)] hover:bg-[var(--color-lilac-light)] disabled:opacity-50"
+            >
+              {tipsLoading ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  Generating…
+                </span>
+              ) : (
+                'Get more tips'
+              )}
+            </button>
+          </div>
+
+          {tipsLoading &&
+          (aiTips === undefined || aiTips === null || !aiTips?.tips?.length) ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-8 text-[var(--color-text-muted)]">
+              <Loader2 className="h-8 w-8 animate-spin text-[var(--color-lilac-strong)]" aria-hidden />
+              <p className="m-0 text-sm">Cooking up tips for your party…</p>
+            </div>
+          ) : null}
+
+          {!tipsLoading && aiTips === null && typeof onRetryTips === 'function' ? (
+            <div className="rounded-[var(--radius-input)] bg-[var(--color-lilac-light)]/60 px-4 py-3 text-sm text-[var(--color-text-body)]">
+              <p className="m-0">
+                We couldn&apos;t load tips yet. Check your connection or try
+                again.
+              </p>
+              {typeof onRetryTips === 'function' && (
+                <button
+                  type="button"
+                  onClick={() => void onRetryTips()}
+                  className="mt-3 rounded-[var(--radius-pill)] bg-[var(--color-pink-mid)] px-4 py-2 text-xs font-semibold text-[var(--color-text-on-primary)] hover:bg-[var(--color-pink-strong)]"
+                >
+                  Try again
+                </button>
+              )}
+            </div>
+          ) : null}
+
+          {visibleAiTips.length > 0 ? (
+            <ul className="m-0 mt-2 list-none space-y-3 p-0">
+              {visibleAiTips.map((tip) => (
+                <li
+                  key={tip.id}
+                  className="relative rounded-[var(--radius-input)] border border-[var(--color-border)] bg-[var(--color-bg-page)] p-4 pr-11 shadow-sm"
+                >
+                  <button
+                    type="button"
+                    onClick={() => dismissAiTip(tip.id)}
+                    className="absolute right-2 top-2 rounded-full p-1.5 text-[var(--color-text-muted)] hover:bg-[var(--color-lilac-light)] hover:text-[var(--color-text-heading)]"
+                    aria-label={`Dismiss tip: ${tip.title}`}
+                  >
+                    <X className="h-4 w-4" aria-hidden />
+                  </button>
+                  <p className="m-0 pr-1 text-sm font-semibold text-[var(--color-text-heading)]">
+                    {tip.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-body)]">
+                    {tip.body}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {aiTips?.tips?.length > 0 && visibleAiTips.length === 0 && !tipsLoading ? (
+            <p className="m-0 text-sm text-[var(--color-text-muted)]">
+              You&apos;ve dismissed these tips. Tap &quot;Get more tips&quot; for
+              a fresh set.
+            </p>
+          ) : null}
+        </section>
+      )}
 
       {/* Today's Wait Times */}
       <section

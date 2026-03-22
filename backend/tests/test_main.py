@@ -452,6 +452,62 @@ def test_public_trip_not_found():
     assert response.status_code == 404
 
 
+def test_tips_generate_requires_auth():
+    response = client.post(
+        "/tips/generate",
+        json={"trip_info": {"destination": "disney-world"}},
+    )
+    assert response.status_code == 401
+
+
+@patch(
+    "main.trip_tips.generate_personalized_tips",
+    return_value={
+        "generation_id": "genabc",
+        "tips": [
+            {"id": "genabc-t1", "title": "T1", "body": "B1"},
+            {"id": "genabc-t2", "title": "T2", "body": "B2"},
+            {"id": "genabc-t3", "title": "T3", "body": "B3"},
+            {"id": "genabc-t4", "title": "T4", "body": "B4"},
+            {"id": "genabc-t5", "title": "T5", "body": "B5"},
+        ],
+    },
+)
+def test_tips_generate_cached_and_regenerate(mock_gen):
+    token = get_auth_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    body = {
+        "trip_info": {
+            "destination": "disney-world",
+            "party_age_under_7": 1,
+        },
+        "regenerate": False,
+    }
+    r1 = client.post("/tips/generate", json=body, headers=headers)
+    assert r1.status_code == 200
+    d1 = r1.json()
+    assert d1["generation_id"] == "genabc"
+    assert len(d1["tips"]) == 5
+    mock_gen.assert_called_once()
+
+    r2 = client.post("/tips/generate", json=body, headers=headers)
+    assert r2.status_code == 200
+    assert r2.json() == d1
+    assert mock_gen.call_count == 1
+
+    r3 = client.post(
+        "/tips/generate",
+        json={**body, "regenerate": True},
+        headers=headers,
+    )
+    assert r3.status_code == 200
+    assert mock_gen.call_count == 2
+
+    r_get = client.get("/trip", headers=headers)
+    assert r_get.status_code == 200
+    assert r_get.json().get("generated_tips") == r3.json()
+
+
 def test_share_and_public_trip_roundtrip():
     token = get_auth_token()
     headers = {"Authorization": f"Bearer {token}"}

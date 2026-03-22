@@ -210,7 +210,27 @@ def _migrate_saved_trips_share_token(connection) -> None:
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_saved_trips_share_token_unique "
             "ON saved_trips (share_token) WHERE share_token IS NOT NULL"
         )
-    )
+        )
+
+
+def _migrate_saved_trips_generated_tips(connection) -> None:
+    """AI-generated personalized dashboard tips JSON."""
+    insp = inspect(connection)
+    try:
+        cols = [c["name"] for c in insp.get_columns("saved_trips")]
+    except Exception:
+        return
+    if "generated_tips" in cols:
+        return
+    dialect = connection.dialect.name
+    if dialect == "sqlite":
+        connection.execute(text("ALTER TABLE saved_trips ADD COLUMN generated_tips TEXT"))
+    else:
+        connection.execute(
+            text(
+                "ALTER TABLE saved_trips ADD COLUMN IF NOT EXISTS generated_tips JSONB"
+            )
+        )
 
 
 async def init_db() -> None:
@@ -222,3 +242,4 @@ async def init_db() -> None:
         await conn.run_sync(_migrate_saved_trips_lightning_lane_guide)
         await conn.run_sync(_migrate_saved_trips_dining)
         await conn.run_sync(_migrate_saved_trips_share_token)
+        await conn.run_sync(_migrate_saved_trips_generated_tips)
