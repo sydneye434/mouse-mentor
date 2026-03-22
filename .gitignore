@@ -206,9 +206,9 @@ cython_debug/
 node_modules/
 dist/
 
-# Local SQLite DB for saved trips (opt-in only)
-backend/saved_trips.db
-backend/saved_trips.db-journal
+# Local SQLite fallback (when DATABASE_URL unset)
+local.db
+backend/local.db
 
 # Marimo
 marimo/_static/

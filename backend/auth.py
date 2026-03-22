@@ -1,49 +1,37 @@
 """
-User accounts and JWT auth. Users table and trip storage are tied to user_id.
+User accounts and JWT auth. Async SQLAlchemy for user persistence.
 Developed by Sydney Edwards.
 """
 
 from __future__ import annotations
 
 import datetime
-import secrets
-import sqlite3
-from pathlib import Path
+import os
 from typing import Any, Optional
 
 import bcrypt
 import jwt
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-_db_path: Optional[str] = None
-
-
-# Use same DB as store for simplicity
-def _get_db_path() -> str:
-    global _db_path
-    if _db_path is None:
-        base = Path(__file__).resolve().parent
-        _db_path = str(base / "saved_trips.db")
-    return _db_path
+import env  # noqa: F401
+from models import User
 
 
-def _conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(_get_db_path())
-    conn.row_factory = sqlite3.Row
-    return conn
+# JWT secret: required in production (set JWT_SECRET_KEY)
+def _jwt_secret() -> str:
+    key = os.environ.get("JWT_SECRET_KEY", "").strip()
+    if key:
+        return key
+    environment = os.environ.get("ENVIRONMENT", "").lower()
+    if environment in ("production", "prod"):
+        raise RuntimeError("JWT_SECRET_KEY must be set in production")
+    return "dev-only-jwt-secret-change-in-production-min-32-chars"
 
 
-def init_users() -> None:
-    with _conn() as c:
-        c.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                hashed_password TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
+SECRET_KEY = _jwt_secret()
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_DAYS = 30
 
 
 def hash_password(password: str) -> str:
@@ -60,57 +48,52 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_user(email: str, password: str) -> dict[str, Any]:
-    init_users()
+async def create_user(
+    session: AsyncSession, email: str, password: str
+) -> dict[str, Any]:
+    normalized = email.strip().lower()
     hashed = hash_password(password)
-    created = datetime.datetime.utcnow().isoformat() + "Z"
-    with _conn() as c:
-        cur = c.execute(
-            "INSERT INTO users (email, hashed_password, created_at) VALUES (?, ?, ?)",
-            (email.strip().lower(), hashed, created),
-        )
-        uid = cur.lastrowid
-    return {"id": uid, "email": email.strip().lower(), "created_at": created}
-
-
-def get_user_by_email(email: str) -> Optional[dict[str, Any]]:
-    init_users()
-    with _conn() as c:
-        row = c.execute(
-            "SELECT id, email, hashed_password, created_at FROM users WHERE email = ?",
-            (email.strip().lower(),),
-        ).fetchone()
-    if row is None:
-        return None
+    user = User(email=normalized, hashed_password=hashed)
+    session.add(user)
+    await session.flush()
+    await session.refresh(user)
     return {
-        "id": row["id"],
-        "email": row["email"],
-        "hashed_password": row["hashed_password"],
-        "created_at": row["created_at"],
+        "id": user.id,
+        "email": user.email,
+        "created_at": user.created_at.isoformat() if user.created_at else "",
     }
 
 
-def get_user_by_id(user_id: int) -> Optional[dict[str, Any]]:
-    init_users()
-    with _conn() as c:
-        row = c.execute(
-            "SELECT id, email, hashed_password, created_at FROM users WHERE id = ?",
-            (user_id,),
-        ).fetchone()
-    if row is None:
+async def get_user_by_email(
+    session: AsyncSession, email: str
+) -> Optional[dict[str, Any]]:
+    result = await session.execute(
+        select(User).where(User.email == email.strip().lower())
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
         return None
     return {
-        "id": row["id"],
-        "email": row["email"],
-        "hashed_password": row["hashed_password"],
-        "created_at": row["created_at"],
+        "id": user.id,
+        "email": user.email,
+        "hashed_password": user.hashed_password,
+        "created_at": user.created_at.isoformat() if user.created_at else "",
     }
 
 
-# JWT: use a fixed secret for dev; in production set via env
-SECRET_KEY = secrets.token_urlsafe(32)
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 30
+async def get_user_by_id(
+    session: AsyncSession, user_id: int
+) -> Optional[dict[str, Any]]:
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        return None
+    return {
+        "id": user.id,
+        "email": user.email,
+        "hashed_password": user.hashed_password,
+        "created_at": user.created_at.isoformat() if user.created_at else "",
+    }
 
 
 def create_access_token(user_id: int) -> str:

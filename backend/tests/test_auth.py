@@ -12,16 +12,7 @@ import jwt
 import pytest
 
 import auth
-
-
-@pytest.fixture
-def isolated_db(tmp_path, monkeypatch):
-    """Use a temporary database for auth so tests don't touch the real DB."""
-    db_path = str(tmp_path / "test_auth.db")
-    monkeypatch.setattr(auth, "_db_path", db_path)
-    auth.init_users()
-    yield db_path
-
+from database import async_session_maker
 
 # ----- Password hashing -----
 
@@ -70,37 +61,50 @@ def test_verify_password_rejects_invalid_hash():
 # ----- User storage (passwords hashed in DB) -----
 
 
-def test_create_user_stores_hashed_password(isolated_db):
+@pytest.mark.asyncio
+async def test_create_user_stores_hashed_password():
     """User record must contain hashed password, never plaintext."""
     email = "secure@example.com"
     password = "plaintextPassword8"
-    auth.create_user(email, password)
-    user = auth.get_user_by_email(email)
+    async with async_session_maker() as session:
+        await auth.create_user(session, email, password)
+        await session.commit()
+    async with async_session_maker() as session:
+        user = await auth.get_user_by_email(session, email)
     assert user is not None
     assert user["hashed_password"] != password
     assert user["email"] == email
     assert auth.verify_password(password, user["hashed_password"])
 
 
-def test_create_user_normalizes_email(isolated_db):
+@pytest.mark.asyncio
+async def test_create_user_normalizes_email():
     """Email must be stored normalized (lowercase, stripped)."""
-    auth.create_user("  UPPER@Example.COM  ", "password123")
-    user = auth.get_user_by_email("upper@example.com")
+    async with async_session_maker() as session:
+        await auth.create_user(session, "  UPPER@Example.COM  ", "password123")
+        await session.commit()
+    async with async_session_maker() as session:
+        user = await auth.get_user_by_email(session, "upper@example.com")
     assert user is not None
     assert user["email"] == "upper@example.com"
 
 
-def test_sql_injection_in_email_does_not_break_auth(isolated_db):
+@pytest.mark.asyncio
+async def test_sql_injection_in_email_does_not_break_auth():
     """Email containing SQL-like content must be stored safely (parameterized queries)."""
     malicious_email = "'; DROP TABLE users;--"
-    auth.create_user(malicious_email, "password123")
-    # Email is normalized to lowercase; important: it was stored safely (parameterized)
-    user = auth.get_user_by_email(malicious_email)
+    async with async_session_maker() as session:
+        await auth.create_user(session, malicious_email, "password123")
+        await session.commit()
+    async with async_session_maker() as session:
+        user = await auth.get_user_by_email(session, malicious_email)
     assert user is not None
     assert user["email"] == malicious_email.strip().lower()
-    # Table must still exist and be usable
-    auth.create_user("other@example.com", "otherpass8")
-    other = auth.get_user_by_email("other@example.com")
+    async with async_session_maker() as session:
+        await auth.create_user(session, "other@example.com", "otherpass8")
+        await session.commit()
+    async with async_session_maker() as session:
+        other = await auth.get_user_by_email(session, "other@example.com")
     assert other is not None
 
 
@@ -127,7 +131,6 @@ def test_decode_access_token_rejects_tampered_token():
     token = auth.create_access_token(1)
     parts = token.split(".")
     assert len(parts) == 3
-    # Corrupt the signature (third part) so it no longer verifies
     sig = parts[2]
     mid = len(sig) // 2
     tampered_sig = sig[:mid] + ("x" if sig[mid] != "x" else "y") + sig[mid + 1 :]
@@ -141,7 +144,7 @@ def test_decode_access_token_rejects_wrong_secret():
         "sub": "1",
         "exp": datetime.datetime.utcnow() + datetime.timedelta(days=1),
     }
-    wrong_secret = "x" * 32  # avoid InsecureKeyLengthWarning
+    wrong_secret = "x" * 32
     wrong_secret_token = jwt.encode(payload, wrong_secret, algorithm=auth.ALGORITHM)
     assert auth.decode_access_token(wrong_secret_token) is None
 

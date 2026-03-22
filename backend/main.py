@@ -1,35 +1,49 @@
 """
 Mouse Mentor API: auth (register/login), chat, and saved trip per user.
-Developed by Sydney Edwards.
+Async FastAPI + SQLAlchemy. Developed by Sydney Edwards.
 """
 
 from __future__ import annotations
 
+import os
+from contextlib import asynccontextmanager
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import auth
+import env  # noqa: F401  # load .env before database/auth read os.environ
 import store
 from ai import generate_reply as ai_generate_reply
+from database import get_session, init_db
 
-app = FastAPI(title="Mouse Mentor API")
+
+def _cors_origins() -> List[str]:
+    raw = os.environ.get(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    )
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+
+app = FastAPI(title="Mouse Mentor API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def startup():
-    auth.init_users()
-    store.init_db()
 
 
 # ----- Auth -----
@@ -61,37 +75,39 @@ def get_current_user_id(
     return auth.decode_access_token(token)
 
 
-def require_user(
+async def require_user(
     authorization: Optional[str] = Header(None, alias="Authorization"),
+    session: AsyncSession = Depends(get_session),
 ) -> int:
     """Return user_id from Bearer token or raise 401."""
     user_id = get_current_user_id(authorization)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Sign in to save or load your trip")
-    if auth.get_user_by_id(user_id) is None:
+    user = await auth.get_user_by_id(session, user_id)
+    if user is None:
         raise HTTPException(status_code=401, detail="Invalid token")
     return user_id
 
 
 @app.post("/auth/register", response_model=TokenResponse)
-def register(data: RegisterRequest):
+async def register(data: RegisterRequest, session: AsyncSession = Depends(get_session)):
     if not data.email.strip():
         raise HTTPException(status_code=400, detail="Email required")
     if len(data.password) < 8:
         raise HTTPException(
             status_code=400, detail="Password must be at least 8 characters"
         )
-    existing = auth.get_user_by_email(data.email)
+    existing = await auth.get_user_by_email(session, data.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = auth.create_user(data.email, data.password)
+    user = await auth.create_user(session, data.email, data.password)
     token = auth.create_access_token(user["id"])
     return TokenResponse(access_token=token, email=user["email"])
 
 
 @app.post("/auth/login", response_model=TokenResponse)
-def login(data: LoginRequest):
-    user = auth.get_user_by_email(data.email)
+async def login(data: LoginRequest, session: AsyncSession = Depends(get_session)):
+    user = await auth.get_user_by_email(session, data.email)
     if not user or not auth.verify_password(data.password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = auth.create_access_token(user["id"])
@@ -142,13 +158,14 @@ class ChatResponse(BaseModel):
 
 
 @app.get("/health")
-def health():
+async def health():
     return {"status": "ok"}
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(
+async def chat(
     request: ChatRequest,
+    session: AsyncSession = Depends(get_session),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ):
     user_id = get_current_user_id(authorization)
@@ -158,9 +175,9 @@ def chat(
                 status_code=401,
                 detail="Sign in to save your trip",
             )
-        store.save_trip(user_id, request.trip_info.model_dump())
+        await store.save_trip(session, user_id, request.trip_info.model_dump())
     elif not request.save_trip and user_id is not None:
-        store.delete_trip(user_id)
+        await store.delete_trip(session, user_id)
 
     last = request.messages[-1] if request.messages else None
     trip = request.trip_info
@@ -179,14 +196,20 @@ def chat(
 
 
 @app.get("/trip")
-def get_saved_trip(user_id: int = Depends(require_user)):
-    data = store.get_trip(user_id)
+async def get_saved_trip(
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    data = await store.get_trip(session, user_id)
     return {"trip": data}
 
 
 @app.delete("/trip")
-def delete_saved_trip(user_id: int = Depends(require_user)):
-    store.delete_trip(user_id)
+async def delete_saved_trip(
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await store.delete_trip(session, user_id)
     return {"deleted": True}
 
 

@@ -170,6 +170,28 @@ bandit -r . -x ./tests
 pip-audit -r requirements.txt
 ```
 
+## Deployment (Vercel + Render)
+
+**Frontend (Vercel)** — React/Vite at the repo root.
+
+1. Connect the repo in [Vercel](https://vercel.com); use defaults or `vercel.json` (build: `npm run build`, output: `dist`).
+2. Set **`VITE_API_URL`** to your Render API URL (e.g. `https://mouse-mentor-api.onrender.com`), no trailing slash.
+3. Copy **`.env.example`** → `.env.local` for local production-like testing.
+
+**Backend (Render)** — FastAPI in `backend/`.
+
+1. Use **`render.yaml`** as a Blueprint, or create a **Web Service** with root directory `backend`, build `pip install -r requirements.txt`, start `uvicorn main:app --host 0.0.0.0 --port $PORT`.
+2. Add a **PostgreSQL** database; Render sets **`DATABASE_URL`** (the app normalizes `postgres://` → `asyncpg`).
+3. Set **`JWT_SECRET_KEY`** (long random string) and **`CORS_ORIGINS`** to your Vercel origin(s), comma-separated.
+4. Set AI keys (**`GROQ_API_KEY`**, etc.) as in **`backend/.env.example`**.
+
+**Environment variables**
+
+| Where | File |
+|-------|------|
+| Frontend | **`.env.example`** (root) — `VITE_API_URL` |
+| Backend | **`backend/.env.example`** — `DATABASE_URL`, `JWT_SECRET_KEY`, `CORS_ORIGINS`, AI keys |
+
 ## Pre-commit hook
 
 A pre-commit hook reformats and lints staged code so it passes the pipeline checks.

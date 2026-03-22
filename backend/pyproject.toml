@@ -10,6 +10,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
     "httpx>=0.28.0",
     "black>=24.0.0",
@@ -39,6 +40,7 @@ ignore = ["E501", "UP006", "UP035", "UP045"]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
 filterwarnings = ["ignore::DeprecationWarning"]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["."]
