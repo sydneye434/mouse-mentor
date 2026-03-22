@@ -3,15 +3,30 @@ API tests: health, chat, auth (register/login), and protected trip endpoints.
 Developed by Sydney Edwards.
 """
 
+import asyncio
 import json
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 import auth
+from database import async_session_maker
 from main import app, limiter
 
 client = TestClient(app)
+
+
+def _mark_user_pro(token: str) -> None:
+    """Grant Pro in DB for the user tied to this JWT (for tests)."""
+    uid = auth.decode_access_token(token)
+    assert uid is not None
+
+    async def _grant() -> None:
+        async with async_session_maker() as session:
+            await auth.set_user_pro(session, uid)
+            await session.commit()
+
+    asyncio.run(_grant())
 
 
 def _sse_collect_text(body: str) -> str:
@@ -161,8 +176,31 @@ def test_chat_save_trip_requires_auth():
     assert "Sign in" in response.json()["detail"]
 
 
-def test_export_requires_messages():
-    response = client.post("/export", json={"messages": []})
+def test_export_requires_auth():
+    response = client.post(
+        "/export",
+        json={"messages": [{"role": "user", "text": "Hi"}]},
+    )
+    assert response.status_code == 401
+
+
+def test_export_requires_pro():
+    token = get_auth_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.post(
+        "/export",
+        json={"messages": [{"role": "user", "text": "Hi"}]},
+        headers=headers,
+    )
+    assert response.status_code == 403
+    assert "Pro" in response.json().get("detail", "")
+
+
+def test_export_requires_messages_when_pro():
+    token = get_auth_token()
+    _mark_user_pro(token)
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.post("/export", json={"messages": []}, headers=headers)
     assert response.status_code == 400
 
 
@@ -213,9 +251,13 @@ def test_chat_persists_messages_when_save_trip(mock_stream):
     return_value={"summary": "Test trip", "days": []},
 )
 def test_export_returns_pdf(mock_extract, mock_build):
+    token = get_auth_token()
+    _mark_user_pro(token)
+    headers = {"Authorization": f"Bearer {token}"}
     response = client.post(
         "/export",
         json={"messages": [{"role": "user", "text": "Plan my day at EPCOT"}]},
+        headers=headers,
     )
     assert response.status_code == 200
     assert response.headers.get("content-type", "").startswith("application/pdf")

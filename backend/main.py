@@ -34,8 +34,11 @@ from ai import (
 from ai import (
     stream_reply as ai_stream_reply,
 )
+from billing import router as billing_router
 from database import async_session_maker, get_session, init_db
+from deps import get_current_user_id, require_pro, require_user
 from rate_limit import chat_limit_for_key, chat_rate_limit_key
+from schemas import TokenResponse
 
 # Per-route limits use chat_rate_limit_key + chat_limit_for_key; default key is IP.
 limiter = Limiter(
@@ -91,6 +94,8 @@ app.add_middleware(
     expose_headers=["Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
 )
 
+app.include_router(billing_router, prefix="/billing", tags=["billing"])
+
 
 # ----- Auth -----
 
@@ -105,36 +110,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    email: str
-
-
-def get_current_user_id(
-    authorization: Optional[str] = Header(None, alias="Authorization"),
-) -> Optional[int]:
-    """Return user_id from Bearer token, or None if missing/invalid."""
-    if not authorization or not authorization.startswith("Bearer "):
-        return None
-    token = authorization.replace("Bearer ", "").strip()
-    return auth.decode_access_token(token)
-
-
-async def require_user(
-    authorization: Optional[str] = Header(None, alias="Authorization"),
-    session: AsyncSession = Depends(get_session),
-) -> int:
-    """Return user_id from Bearer token or raise 401."""
-    user_id = get_current_user_id(authorization)
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="Sign in to save or load your trip")
-    user = await auth.get_user_by_id(session, user_id)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return user_id
-
-
 @app.post("/auth/register", response_model=TokenResponse)
 async def register(data: RegisterRequest, session: AsyncSession = Depends(get_session)):
     if not data.email.strip():
@@ -147,8 +122,12 @@ async def register(data: RegisterRequest, session: AsyncSession = Depends(get_se
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     user = await auth.create_user(session, data.email, data.password)
-    token = auth.create_access_token(user["id"])
-    return TokenResponse(access_token=token, email=user["email"])
+    token = auth.create_access_token(user["id"], is_pro=bool(user.get("is_pro")))
+    return TokenResponse(
+        access_token=token,
+        email=user["email"],
+        is_pro=bool(user.get("is_pro")),
+    )
 
 
 @app.post("/auth/login", response_model=TokenResponse)
@@ -156,8 +135,12 @@ async def login(data: LoginRequest, session: AsyncSession = Depends(get_session)
     user = await auth.get_user_by_email(session, data.email)
     if not user or not auth.verify_password(data.password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    token = auth.create_access_token(user["id"])
-    return TokenResponse(access_token=token, email=user["email"])
+    token = auth.create_access_token(user["id"], is_pro=bool(user.get("is_pro")))
+    return TokenResponse(
+        access_token=token,
+        email=user["email"],
+        is_pro=bool(user.get("is_pro")),
+    )
 
 
 # ----- Chat & Trip -----
@@ -342,9 +325,13 @@ async def chat(
 
 
 @app.post("/export")
-async def export_itinerary_pdf(request: ExportRequest):
+async def export_itinerary_pdf(
+    request: ExportRequest,
+    _user_id: int = Depends(require_pro),
+):
     """
     Extract a day-by-day itinerary from the conversation via the LLM and return a PDF.
+    Requires Mouse Mentor Pro.
     """
     if not request.messages:
         raise HTTPException(

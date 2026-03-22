@@ -1,0 +1,127 @@
+/* Developed by Sydney Edwards */
+.paywall-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: var(--color-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.paywall-modal {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  max-width: 26rem;
+  width: 100%;
+  padding: 1.5rem 1.35rem;
+}
+
+.paywall-modal__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+}
+
+.paywall-modal__lede {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.paywall-modal__list {
+  margin: 0 0 1.25rem;
+  padding-left: 1.2rem;
+  font-size: 0.9rem;
+  color: var(--color-text-body);
+  line-height: 1.55;
+}
+
+.paywall-modal__list li {
+  margin-bottom: 0.35rem;
+}
+
+.paywall-modal__price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-input);
+  background: var(--color-sky-light);
+  border: 1px solid var(--color-sky-border);
+}
+
+.paywall-modal__amount {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-sky-strong);
+}
+
+.paywall-modal__once {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.paywall-modal__error {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-error-text);
+  background: var(--color-error-bg);
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-input);
+}
+
+.paywall-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.paywall-modal__primary {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  background: var(--color-pink-mid);
+  color: var(--color-text-on-primary);
+  transition: background 0.15s;
+}
+
+.paywall-modal__primary:hover:not(:disabled) {
+  background: var(--color-pink-strong);
+}
+
+.paywall-modal__primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.paywall-modal__secondary {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1.5px solid var(--color-lilac-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-lilac-strong);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.paywall-modal__secondary:hover {
+  background: var(--color-lilac-light);
+}
+
+.paywall-modal__hint {
+  margin: 1rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}

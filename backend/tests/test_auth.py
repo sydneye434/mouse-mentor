@@ -119,6 +119,17 @@ def test_create_and_decode_token_roundtrip():
     assert decoded == user_id
 
 
+def test_token_claims_include_is_pro():
+    """JWT payload carries is_pro for the client and API guards."""
+    token = auth.create_access_token(7, is_pro=True)
+    claims = auth.decode_token_claims(token)
+    assert claims is not None
+    assert claims["user_id"] == 7
+    assert claims["is_pro"] is True
+    token_free = auth.create_access_token(7, is_pro=False)
+    assert auth.decode_token_claims(token_free)["is_pro"] is False
+
+
 def test_decode_access_token_rejects_invalid_string():
     """Garbage or malformed token must return None, not raise."""
     assert auth.decode_access_token("") is None

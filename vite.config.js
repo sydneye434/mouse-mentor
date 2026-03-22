@@ -16,6 +16,7 @@ export default defineConfig({
       '/wait-times': { target: 'http://localhost:8000', changeOrigin: true },
       '/export': { target: 'http://localhost:8000', changeOrigin: true },
       '/messages': { target: 'http://localhost:8000', changeOrigin: true },
+      '/billing': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
   test: {

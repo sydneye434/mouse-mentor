@@ -82,7 +82,11 @@ export default function AuthModal({ onClose, onSuccess }) {
         )
         return
       }
-      onSuccess({ token: data.access_token, email: data.email })
+      onSuccess({
+        token: data.access_token,
+        email: data.email,
+        is_pro: !!data.is_pro,
+      })
       onClose()
     } catch (err) {
       const isLogin = mode === 'login'

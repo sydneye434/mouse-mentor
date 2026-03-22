@@ -137,19 +137,36 @@ export default function GetToKnowYou({
   const isFirst = step === 1
   const isDone = step === TOTAL_STEPS
 
+  const progressPct = (step / TOTAL_STEPS) * 100
+
   return (
     <div className="get-to-know-you">
-      <div className="get-to-know-you__progress">
-        {STEPS.map((s, i) => (
-          <button
-            key={s.id}
-            type="button"
-            className={`get-to-know-you__dot ${i + 1 <= step ? 'get-to-know-you__dot--active' : ''}`}
-            onClick={() => setStep(i + 1)}
-            aria-label={`Go to step ${i + 1}: ${s.title}`}
-            title={s.title}
+      <div className="get-to-know-you__progress-wrap">
+        <div
+          className="get-to-know-you__progress-bar"
+          role="progressbar"
+          aria-valuenow={step}
+          aria-valuemin={1}
+          aria-valuemax={TOTAL_STEPS}
+          aria-label={`Onboarding step ${step} of ${TOTAL_STEPS}`}
+        >
+          <div
+            className="get-to-know-you__progress-bar-fill"
+            style={{ width: `${progressPct}%` }}
           />
-        ))}
+        </div>
+        <div className="get-to-know-you__progress">
+          {STEPS.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`get-to-know-you__dot ${i + 1 <= step ? 'get-to-know-you__dot--active' : ''}`}
+              onClick={() => setStep(i + 1)}
+              aria-label={`Go to step ${i + 1}: ${s.title}`}
+              title={s.title}
+            />
+          ))}
+        </div>
       </div>
       <p className="get-to-know-you__step-label">
         Step {step} of {TOTAL_STEPS}

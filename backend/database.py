@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from typing import AsyncGenerator
 
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool, StaticPool
 
@@ -69,7 +70,31 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
+def _migrate_users_is_pro_column(connection) -> None:
+    """Add is_pro to existing databases created before this column existed."""
+    insp = inspect(connection)
+    try:
+        cols = [c["name"] for c in insp.get_columns("users")]
+    except Exception:
+        return
+    if "is_pro" in cols:
+        return
+    dialect = connection.dialect.name
+    if dialect == "sqlite":
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN is_pro BOOLEAN NOT NULL DEFAULT 0")
+        )
+    else:
+        connection.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro "
+                "BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
+
+
 async def init_db() -> None:
-    """Create tables if they do not exist."""
+    """Create tables if they do not exist; migrate legacy schemas."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_migrate_users_is_pro_column)

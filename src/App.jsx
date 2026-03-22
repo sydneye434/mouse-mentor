@@ -3,11 +3,12 @@
  * Main app: auth state, get-to-know-you flow, chat, and saved trip. Uses proxy in dev for API.
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
-import MentorWandIcon from './MentorWandIcon.jsx'
+import { Wand2 } from 'lucide-react'
 import MickeyIcon from './MickeyIcon.jsx'
 import GetToKnowYou from './components/GetToKnowYou.jsx'
 import TripSummary from './components/TripSummary.jsx'
 import AuthModal from './components/AuthModal.jsx'
+import PaywallModal from './components/PaywallModal.jsx'
 import { toTripInfoPayload } from './tripInfo.js'
 import './App.css'
 
@@ -47,7 +48,8 @@ function getStoredUser() {
         : null
     if (!raw) return null
     const data = JSON.parse(raw)
-    if (data && data.token && data.email) return data
+    if (data && data.token && data.email)
+      return { ...data, is_pro: !!data.is_pro }
   } catch {}
   return null
 }
@@ -113,6 +115,9 @@ export default function App() {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState(null)
   const [clearingChat, setClearingChat] = useState(false)
+  const [showPaywall, setShowPaywall] = useState(false)
+  const [paywallFeature, setPaywallFeature] = useState('export')
+  const checkoutHandledRef = useRef(false)
   const chatHistoryLoadedRef = useRef(false)
   const messagesEndRef = useRef(null)
 
@@ -120,6 +125,57 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
     setStoredTheme(theme)
   }, [theme])
+
+  /** After Stripe Checkout redirect: exchange session for Pro JWT. */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('checkout') !== 'success') return
+    const sessionId = params.get('session_id')
+    if (!sessionId || !user?.token) return
+    if (checkoutHandledRef.current) return
+    checkoutHandledRef.current = true
+
+    let cancelled = false
+    async function complete() {
+      try {
+        const res = await fetch(`${API_BASE}/billing/complete-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${user.token}`,
+          },
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+        if (cancelled || !res.ok) return
+        const data = await res.json()
+        const next = {
+          token: data.access_token,
+          email: data.email,
+          is_pro: !!data.is_pro,
+        }
+        setUser(next)
+        setStoredUser(next)
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) {
+          const url = new URL(window.location.href)
+          url.searchParams.delete('checkout')
+          url.searchParams.delete('session_id')
+          const q = url.searchParams.toString()
+          window.history.replaceState(
+            {},
+            '',
+            url.pathname + (q ? `?${q}` : '') + url.hash
+          )
+        }
+      }
+    }
+    complete()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.token])
 
   useEffect(() => {
     const el = messagesEndRef.current
@@ -508,6 +564,15 @@ export default function App() {
 
   async function handleExportItinerary() {
     if (!messages.length || loading || exporting) return
+    if (!user?.token) {
+      setShowAuthModal(true)
+      return
+    }
+    if (!user.is_pro) {
+      setPaywallFeature('export')
+      setShowPaywall(true)
+      return
+    }
     setExporting(true)
     setExportError(null)
     try {
@@ -556,6 +621,21 @@ export default function App() {
     }
   }
 
+  function handleMultiDayPlan() {
+    if (!user?.token) {
+      setShowAuthModal(true)
+      return
+    }
+    if (!user.is_pro) {
+      setPaywallFeature('multi-day')
+      setShowPaywall(true)
+      return
+    }
+    setInput(
+      'Please create a day-by-day park plan for my trip with rough timing, must-dos, and rest breaks.'
+    )
+  }
+
   return (
     <div className="app">
       {theme === 'light' && (
@@ -579,28 +659,28 @@ export default function App() {
                 cy="25"
                 rx="14"
                 ry="9"
-                fill="rgba(248, 218, 230, 0.8)"
+                fill="var(--color-cloud-fill)"
               />
               <ellipse
                 cx="28"
                 cy="22"
                 rx="12"
                 ry="8"
-                fill="rgba(248, 218, 230, 0.8)"
+                fill="var(--color-cloud-fill)"
               />
               <ellipse
                 cx="35"
                 cy="26"
                 rx="13"
                 ry="8"
-                fill="rgba(248, 218, 230, 0.8)"
+                fill="var(--color-cloud-fill)"
               />
               <ellipse
                 cx="25"
                 cy="28"
                 rx="11"
                 ry="7"
-                fill="rgba(248, 218, 230, 0.8)"
+                fill="var(--color-cloud-fill)"
               />
             </g>
             {/* Fluffy cloud 2 */}
@@ -618,28 +698,28 @@ export default function App() {
                 cy="18"
                 rx="16"
                 ry="10"
-                fill="rgba(245, 220, 232, 0.75)"
+                fill="var(--color-cloud-fill-alt)"
               />
               <ellipse
                 cx="75"
                 cy="16"
                 rx="14"
                 ry="9"
-                fill="rgba(245, 220, 232, 0.75)"
+                fill="var(--color-cloud-fill-alt)"
               />
               <ellipse
                 cx="82"
                 cy="20"
                 rx="12"
                 ry="8"
-                fill="rgba(245, 220, 232, 0.75)"
+                fill="var(--color-cloud-fill-alt)"
               />
               <ellipse
                 cx="70"
                 cy="22"
                 rx="13"
                 ry="8"
-                fill="rgba(245, 220, 232, 0.75)"
+                fill="var(--color-cloud-fill-alt)"
               />
             </g>
             {/* Fluffy cloud 3 */}
@@ -657,28 +737,28 @@ export default function App() {
                 cy="55"
                 rx="18"
                 ry="11"
-                fill="rgba(250, 225, 235, 0.7)"
+                fill="var(--color-cloud-fill-soft)"
               />
               <ellipse
                 cx="58"
                 cy="52"
                 rx="15"
                 ry="10"
-                fill="rgba(250, 225, 235, 0.7)"
+                fill="var(--color-cloud-fill-soft)"
               />
               <ellipse
                 cx="68"
                 cy="56"
                 rx="14"
                 ry="9"
-                fill="rgba(250, 225, 235, 0.7)"
+                fill="var(--color-cloud-fill-soft)"
               />
               <ellipse
                 cx="52"
                 cy="58"
                 rx="16"
                 ry="9"
-                fill="rgba(250, 225, 235, 0.7)"
+                fill="var(--color-cloud-fill-soft)"
               />
             </g>
             {/* Fluffy cloud 4 */}
@@ -696,21 +776,21 @@ export default function App() {
                 cy="62"
                 rx="15"
                 ry="10"
-                fill="rgba(248, 215, 228, 0.75)"
+                fill="var(--color-cloud-fill-alt)"
               />
               <ellipse
                 cx="18"
                 cy="58"
                 rx="13"
                 ry="8"
-                fill="rgba(248, 215, 228, 0.75)"
+                fill="var(--color-cloud-fill-alt)"
               />
               <ellipse
                 cx="25"
                 cy="63"
                 rx="12"
                 ry="8"
-                fill="rgba(248, 215, 228, 0.75)"
+                fill="var(--color-cloud-fill-alt)"
               />
             </g>
             {/* Fluffy cloud 5 */}
@@ -728,28 +808,28 @@ export default function App() {
                 cy="72"
                 rx="14"
                 ry="9"
-                fill="rgba(246, 222, 232, 0.75)"
+                fill="var(--color-cloud-fill-soft)"
               />
               <ellipse
                 cx="88"
                 cy="70"
                 rx="12"
                 ry="8"
-                fill="rgba(246, 222, 232, 0.75)"
+                fill="var(--color-cloud-fill-soft)"
               />
               <ellipse
                 cx="92"
                 cy="76"
                 rx="10"
                 ry="7"
-                fill="rgba(246, 222, 232, 0.75)"
+                fill="var(--color-cloud-fill-soft)"
               />
               <ellipse
                 cx="82"
                 cy="75"
                 rx="11"
                 ry="7"
-                fill="rgba(246, 222, 232, 0.75)"
+                fill="var(--color-cloud-fill-soft)"
               />
             </g>
             {/* Fluffy cloud 6 */}
@@ -767,21 +847,21 @@ export default function App() {
                 cy="82"
                 rx="13"
                 ry="8"
-                fill="rgba(247, 218, 228, 0.7)"
+                fill="var(--color-cloud-fill-soft)"
               />
               <ellipse
                 cx="42"
                 cy="79"
                 rx="11"
                 ry="7"
-                fill="rgba(247, 218, 228, 0.7)"
+                fill="var(--color-cloud-fill-soft)"
               />
               <ellipse
                 cx="48"
                 cy="84"
                 rx="12"
                 ry="7"
-                fill="rgba(247, 218, 228, 0.7)"
+                fill="var(--color-cloud-fill-soft)"
               />
             </g>
           </svg>
@@ -855,7 +935,6 @@ export default function App() {
                   key={`${x}-${y}`}
                   className={`night-star night-star--${size}`}
                   transform={`translate(${x}, ${y}) scale(${scale})`}
-                  fill="rgba(255, 255, 255, 0.92)"
                 >
                   <use href="#night-star-shape" />
                 </g>
@@ -867,10 +946,23 @@ export default function App() {
 
       <header className="header">
         <div className="header__row">
-          <div className="logo-wrap">
-            <MentorWandIcon className="logo-icon" size={28} />
-            <h1 className="logo">Mouse Mentor</h1>
-          </div>
+          <nav className="header__nav" aria-label="Main">
+            <div className="logo-wrap">
+              <Wand2
+                className="logo-icon lucide-icon"
+                size={28}
+                strokeWidth={1.75}
+                aria-hidden
+              />
+              <h1 className="logo">Mouse Mentor</h1>
+            </div>
+            <a
+              href="#chat-main"
+              className="header__nav-link header__nav-link--active"
+            >
+              Plan
+            </a>
+          </nav>
           <div className="header__auth">
             <button
               type="button"
@@ -917,7 +1009,15 @@ export default function App() {
         />
       )}
 
-      <main className="chat-main">
+      {showPaywall && (
+        <PaywallModal
+          feature={paywallFeature}
+          user={user}
+          onClose={() => setShowPaywall(false)}
+        />
+      )}
+
+      <main id="chat-main" className="chat-main">
         {showTripForm && (
           <GetToKnowYou
             initialTrip={tripInfo}
@@ -1106,6 +1206,14 @@ export default function App() {
 
         {!showTripForm && messages.length > 0 && (
           <div className="export-itinerary-row">
+            <button
+              type="button"
+              className="export-itinerary-btn"
+              onClick={handleMultiDayPlan}
+              disabled={loading || exporting || clearingChat}
+            >
+              Multi-day plan
+            </button>
             <button
               type="button"
               className="export-itinerary-btn"

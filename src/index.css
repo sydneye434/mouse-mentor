@@ -1,5 +1,102 @@
-/* Developed by Sydney Edwards */
-/* Global reset, base font, and #root layout */
+/* Developed by Sydney Edwards — Fantasyland-inspired design tokens (single source of truth) */
+:root {
+  --color-bg-page: #fef8fb;
+  --color-bg-surface: #faeef5;
+  --color-bg-surface-blue: #eef7ff;
+  --color-bg-surface-lilac: #f5f0ff;
+  --color-border: #eedde8;
+  --color-border-strong: #e0ccd8;
+  --color-text-body: #5a3d52;
+  --color-text-heading: #3d2275;
+  --color-text-muted: #9a7a8e;
+  --color-pink-light: #fff0f5;
+  --color-pink-mid: #f2a0be;
+  --color-pink-strong: #d4658a;
+  --color-pink-dark: #8c3a5a;
+  --color-lilac-light: #f5f0ff;
+  --color-lilac-mid: #b89ee0;
+  --color-lilac-strong: #7c5cbf;
+  --color-lilac-dark: #3d2275;
+  --color-sky-light: #eef7ff;
+  --color-sky-mid: #80c3f0;
+  --color-sky-strong: #3a96d4;
+  --color-sky-border: #bde0f9;
+  --color-mint-light: #edfaf4;
+  --color-mint-strong: #27a06e;
+  --color-input-bg: #ffffff;
+  --color-text-on-primary: #ffffff;
+  --color-night-star: rgba(255, 255, 255, 0.92);
+  /* Page atmosphere (radial glows — corner tints) */
+  --color-glow-pink: rgba(242, 160, 190, 0.12);
+  --color-glow-lilac: rgba(184, 158, 224, 0.12);
+  /* SVG clouds (derived from palette; no hex in JSX) */
+  --color-cloud-fill: rgba(248, 218, 230, 0.8);
+  --color-cloud-fill-alt: rgba(245, 220, 232, 0.75);
+  --color-cloud-fill-soft: rgba(250, 225, 235, 0.7);
+  /* States */
+  --color-error-bg: var(--color-pink-light);
+  --color-error-text: var(--color-pink-dark);
+  --color-backdrop: rgba(61, 34, 117, 0.35);
+  /* Radii */
+  --radius-card: 20px;
+  --radius-input: 12px;
+  --radius-msg-user: 18px 18px 4px 18px;
+  --radius-msg-assistant: 18px 18px 18px 4px;
+  --radius-pill: 999px;
+  /* Legacy app aliases → map to tokens (for gradual migration in JS) */
+  --surface: var(--color-bg-surface);
+  --surface-elevated: var(--color-bg-surface);
+  --ink: var(--color-text-body);
+  --ink-muted: var(--color-text-muted);
+  --border: var(--color-border);
+  --bg-input: var(--color-input-bg);
+  --radius: var(--radius-card);
+  --radius-sm: var(--radius-input);
+}
+
+html[data-theme='dark'] {
+  --color-bg-page: #1a1228;
+  --color-bg-surface: #241a32;
+  --color-bg-surface-blue: #1e2838;
+  --color-bg-surface-lilac: #2a1f3d;
+  --color-border: rgba(184, 158, 224, 0.25);
+  --color-border-strong: rgba(184, 158, 224, 0.4);
+  --color-text-body: #e8dff0;
+  --color-text-heading: #e0d4f7;
+  --color-text-muted: #a898b8;
+  --color-pink-light: rgba(242, 160, 190, 0.12);
+  --color-pink-mid: #c97a9a;
+  --color-pink-strong: #e8a0be;
+  --color-pink-dark: #f5c4d6;
+  --color-lilac-light: #2d2540;
+  --color-lilac-mid: #9b7ec8;
+  --color-lilac-strong: #b89ee0;
+  --color-lilac-dark: #e0d4f7;
+  --color-sky-light: #1a2838;
+  --color-sky-mid: #5a9ec8;
+  --color-sky-strong: #80c3f0;
+  --color-sky-border: rgba(58, 150, 212, 0.45);
+  --color-mint-light: rgba(39, 160, 110, 0.15);
+  --color-mint-strong: #4ecf9a;
+  --color-input-bg: rgba(36, 26, 50, 0.92);
+  --color-text-on-primary: #ffffff;
+  --color-night-star: rgba(255, 255, 255, 0.88);
+  --color-glow-pink: rgba(242, 160, 190, 0.08);
+  --color-glow-lilac: rgba(184, 158, 224, 0.1);
+  --color-cloud-fill: rgba(90, 60, 100, 0.35);
+  --color-cloud-fill-alt: rgba(90, 60, 100, 0.3);
+  --color-cloud-fill-soft: rgba(90, 60, 100, 0.28);
+  --color-error-bg: rgba(140, 58, 90, 0.25);
+  --color-error-text: #f5c4d6;
+  --color-backdrop: rgba(0, 0, 0, 0.55);
+  --surface: var(--color-bg-surface);
+  --surface-elevated: var(--color-bg-surface-lilac);
+  --ink: var(--color-text-body);
+  --ink-muted: var(--color-text-muted);
+  --border: var(--color-border);
+  --bg-input: var(--color-input-bg);
+}
+
 *,
 *::before,
 *::after {
@@ -14,20 +111,33 @@ html {
 
 body {
   margin: 0;
-  font-family: 'Nunito', 'DM Sans', system-ui, sans-serif;
-  background: #e8f2f8;
-  color: #2d3748;
+  font-family: 'Lato', sans-serif;
+  background: var(--color-bg-page);
+  color: var(--color-text-body);
   min-height: 100vh;
   transition:
     background 0.25s ease,
     color 0.25s ease;
 }
 
-html[data-theme='dark'] body {
-  background: #0d1117;
-  color: #e6edf3;
+h1,
+h2,
+h3 {
+  font-family: 'Playfair Display', serif;
+  color: var(--color-text-heading);
+  font-weight: 600;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Lucide icons: default lilac; interactive / favorite uses pink */
+.lucide-icon {
+  color: var(--color-lilac-strong);
+  flex-shrink: 0;
+}
+
+.lucide-icon--interactive {
+  color: var(--color-pink-strong);
 }
