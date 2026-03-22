@@ -1,158 +1,193 @@
 # Mouse Mentor
 
-Developed by Sydney Edwards.
+**Mouse Mentor** is a full-stack web app that helps guests plan Walt Disney World trips through a guided questionnaire and an AI chat assistant. Trip context (dates, party size, priorities, pace, and more) travels with every message so replies stay personalized; optional accounts let travelers save their trip and chat history to the cloud and pick up on another device. The stack is a React + Vite SPA talking to a FastAPI backend with JWT auth, streaming chat (SSE), and PostgreSQL in production—powered by Groq or Google Gemini plus DuckDuckGo-backed web search for up-to-date park and planning context.
 
-A web app for planning Disney trips via an AI chat assistant. Users go through a short **get-to-know-you** questionnaire (destination, dates, party, where they want to stay, first visit or returning, priorities, pace, dietary notes) or skip it, then chat with the assistant; trip details are sent with each message for personalized replies. **Saving a trip requires a user account.** On the final step (step 8: “Save your trip?”), guests can **Sign in** or **Register** (email + password); only when signed in can they opt in to save their trip. Saved data is tied to the **user account**, not to IP or browser session. An info icon (ℹ) explains this; signed-in users who opted in can delete their saved data from the chat page at any time.
+Developed by Sydney Edwards · Repository: [`sydneye434/mouse-mentor`](https://github.com/sydneye434/mouse-mentor)
+
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![CI](https://github.com/sydneye434/mouse-mentor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sydneye434/mouse-mentor/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-Vitest%20%2B%20pytest%20(≥50%25)-brightgreen?style=flat-square)](https://github.com/sydneye434/mouse-mentor/actions/workflows/ci.yml)
+
+## Live demo
+
+**[Live demo →](https://your-app.vercel.app)** *(placeholder—replace with your deployed frontend URL after deploy.)*
+
+## Architecture
+
+The browser talks only to **FastAPI**; the API persists accounts and saved trips in **PostgreSQL** (or locally via SQLite). **Groq** or **Gemini** handles generation; **DuckDuckGo** supplies optional web search snippets—both are outbound integrations, not user-facing services.
+
+```mermaid
+flowchart LR
+  subgraph Client
+    R["React + Vite"]
+  end
+  subgraph Server
+    F[FastAPI]
+  end
+  DB[(PostgreSQL)]
+  R -->|REST + SSE /chat| F
+  F -->|SQLAlchemy async| DB
+  F -.->|LLM API| AI["Groq / Gemini"]
+  F -.->|web search| DDG[DuckDuckGo]
+```
+
+<details>
+<summary><strong>ASCII diagram (plain text)</strong></summary>
+
+```
+  +----------------+       HTTP (REST, SSE)        +------------------+
+  |  React + Vite  |  ---------------------------> |     FastAPI      |
+  |    (browser)   |                               |   (JWT, chat)    |
+  +----------------+                               +--------+---------+
+                                                            |
+                                                            | async SQL
+                                                            v
+                                                    +----------+
+                                                    | PostgreSQL |
+                                                    +----------+
+
+  FastAPI  ----optional---->  Groq / Gemini (LLM)
+  FastAPI  ----optional---->  DuckDuckGo (web search)
+```
+
+</details>
+
+---
 
 ## Prerequisites
 
-- **Node.js** (for the frontend) — [nodejs.org](https://nodejs.org)
-- **Python 3.10+** (for the backend) — [python.org](https://www.python.org)
+- **Node.js** — [nodejs.org](https://nodejs.org)
+- **Python 3.10+** (3.11 recommended; CI uses 3.11) — [python.org](https://www.python.org)
 
 ## Running the application locally
 
-You need to run both the backend and the frontend. Use two terminals.
+Run **two processes**: the API (`backend/`) and the Vite dev server (repo root). Use two terminals, or `npm run dev:all` on macOS/Linux.
 
-### 1. Start the backend (Python API)
-
-In a terminal:
+### 1. Backend (FastAPI)
 
 ```bash
 cd backend
 python -m venv .venv
 ```
 
-Activate the virtual environment:
+<details>
+<summary><strong>Activate the virtual environment (Windows vs macOS/Linux)</strong></summary>
 
 - **macOS / Linux:** `source .venv/bin/activate`
 - **Windows (Command Prompt):** `.venv\Scripts\activate.bat`
 - **Windows (PowerShell):** `.venv\Scripts\Activate.ps1`
 
-Then install dependencies and start the server:
+</details>
 
 ```bash
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
-Leave this terminal running. You should see something like: `Uvicorn running on http://127.0.0.1:8000`.
+Leave this running. You should see: `Uvicorn running on http://127.0.0.1:8000`.
 
-### 2. Start the frontend (React app)
+### 2. Frontend (React / Vite)
 
-Open a **second** terminal (from the project root, not inside `backend`):
+In a **second** terminal from the **project root** (not inside `backend/`):
 
 ```bash
 npm install
 npm run dev
 ```
 
-Leave this terminal running. You should see something like: `Local: http://localhost:5173/`.
+Open **http://localhost:5173**. Vite proxies API routes to the backend in dev.
 
-**Auto-refresh:** Both servers automatically pick up changes:
+**One command (macOS/Linux):** from the project root, `npm run dev:all` starts backend + frontend with auto-reload. On Windows, use two terminals as above.
 
-- **Backend:** `--reload` makes Uvicorn watch `backend/` and restart when you save Python files.
-- **Frontend:** Vite’s Hot Module Replacement (HMR) updates the browser when you save frontend files (no full reload needed for most changes).
+### Optional: custom API URL
 
-**One command (Mac/Linux):** From the project root you can start both with:
+Create `.env` in the project root:
 
-```bash
-npm run dev:all
-```
-
-This runs the backend and frontend in one terminal; both still auto-reload on file changes. (On Windows, use two terminals as above.)
-
-### 3. Access the app in your web browser
-
-1. Open your browser (Chrome, Firefox, Safari, or Edge).
-2. Go to: **http://localhost:5173**
-3. Use **Sign in** in the header to log in or create an account (email + password). You can also skip and use the app without an account, but **saving your trip requires signing in**.
-4. You’ll see the **get-to-know-you** flow: answer a few questions (destination, dates, who’s going, where you want to stay, first visit or returning, vibe, and anything else). You can choose **Skip for now** to go straight to chat, or complete the steps and click **Next** through to the last step.
-5. The final step (step 8) is **Save your trip on the server?** — If you’re **not signed in**, you’ll see **Sign in to save your trip**; after signing in you can turn on the save option. If you’re **signed in**, a checkbox is off by default; an **info icon (ℹ)** explains that data is linked to your account. Only when you turn it on will your trip be stored so you can return to it from any device.
-6. After you click **Start planning**, the main **chat** view appears. If you’re signed in and opted in to save, you’ll see: “FYI — you chose to save your data on the backend, so we are.” You can **Delete my saved data** at any time (with confirmation: “Yes, really delete all my data from the backend servers”).
-7. Type a message and click **Send** to talk to the assistant. The backend uses **Groq** (default, free) or **Google Gemini** plus **web search** (DuckDuckGo) so answers use your trip details and up-to-date public information. Set **GROQ_API_KEY** or **GEMINI_API_KEY** in the backend (see below).
-
-**URLs at a glance:**
-
-| What              | URL                    |
-|-------------------|------------------------|
-| **App (use this)**| http://localhost:5173  |
-| Backend API       | http://localhost:8000  |
-| API docs (Swagger)| http://localhost:8000/docs |
-
-If the backend is not running, the chat will show an error asking you to start it. **Creating an account or signing in will also fail** (e.g. “Not found”) if the backend is not running — the frontend sends auth requests to the same origin in dev, and Vite proxies them to the backend.
-
-## Optional: Custom API URL
-
-If your backend runs on a different host or port, create a `.env` file in the project root:
-
-```
+```env
 VITE_API_URL=http://localhost:8000
 ```
 
-Replace the URL as needed, then restart the frontend (`npm run dev`). **In development, if you do not set `VITE_API_URL`, the app uses relative URLs and Vite proxies `/auth`, `/chat`, `/trip`, and `/health` to `http://localhost:8000`** — so keep the backend running on port 8000.
+If unset in dev, the app uses relative URLs and Vite proxies `/auth`, `/chat`, `/trip`, `/health`, etc. to `http://localhost:8000`.
+
+| What               | URL                     |
+| ------------------ | ----------------------- |
+| **App**            | http://localhost:5173   |
+| **Backend**        | http://localhost:8000   |
+| **API docs**       | http://localhost:8000/docs |
+
+If the backend is off, chat and auth will fail until it’s running.
+
+---
 
 ## Backend AI (chat)
 
-The `/chat` endpoint uses:
+The `/chat` endpoint streams replies (SSE) using:
 
-- **Your trip info** — destination, dates, party, priorities, etc., so answers are personalized.
-- **Web search** — DuckDuckGo is queried for the latest public info (e.g. park hours, dining, tips) and snippets are passed to the model.
-- **Groq (default) or Google Gemini** — set `AI_PROVIDER=groq` (default) or `AI_PROVIDER=gemini` in `.env`. Both have free tiers.
+- **Trip info** from the client for personalization.
+- **Web search** — DuckDuckGo snippets for public, time-sensitive info.
+- **Groq** (default) or **Google Gemini** — set `AI_PROVIDER` and the matching API key in `backend/.env` (see `backend/.env.example`).
 
-**Setup (Groq, default):**
+**Groq (default):** get a key at [console.groq.com](https://console.groq.com), then:
 
-1. Get a free API key at [console.groq.com](https://console.groq.com).
-2. In the `backend` folder, copy `.env.example` to `.env` if needed, then set:
-   ```bash
-   AI_PROVIDER=groq
-   GROQ_API_KEY=your-groq-key-here
-   ```
-3. Restart the backend.
+```bash
+AI_PROVIDER=groq
+GROQ_API_KEY=your-groq-key-here
+```
 
-**Using Gemini instead:**
+**Gemini:** get a key at [aistudio.google.com](https://aistudio.google.com), then:
 
-1. Get a free API key at [aistudio.google.com](https://aistudio.google.com).
-2. In `backend/.env` set:
-   ```bash
-   AI_PROVIDER=gemini
-   GEMINI_API_KEY=your-gemini-key-here
-   ```
-3. Restart the backend.
+```bash
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your-gemini-key-here
+```
 
-Optional: set `GROQ_MODEL` (e.g. `llama-3.3-70b-versatile`) or `GEMINI_MODEL` (e.g. `gemini-2.0-flash`) in `.env`. If the chosen provider’s API key is not set, the chat will ask you to add it.
+Optional: `GROQ_MODEL`, `GEMINI_MODEL`. Restart the backend after changes.
+
+---
 
 ## Frontend scripts
 
-- `npm run dev` — start frontend dev server (HMR: auto-refresh on save)
-- `npm run dev:all` — start backend + frontend together (Mac/Linux; both auto-reload)
-- `npm run build` — build for production
-- `npm run preview` — serve the production build locally
+| Script | Description |
+| ------ | ----------- |
+| `npm run dev` | Vite dev server (HMR) |
+| `npm run dev:all` | Backend + frontend (macOS/Linux) |
+| `npm run build` | Production build |
+| `npm run preview` | Preview production build locally |
 
-## Backend API
+---
 
-- **GET** `/health` — health check
-- **POST** `/auth/register` — create account. Body: `{ "email": "...", "password": "..." }`. Password at least 8 characters. Returns `{ "access_token": "...", "token_type": "bearer", "email": "..." }`.
-- **POST** `/auth/login` — sign in. Body: `{ "email": "...", "password": "..." }`. Returns `{ "access_token": "...", "token_type": "bearer", "email": "..." }`.
-- **GET** `/trip` — return the current user’s saved trip. **Requires auth:** `Authorization: Bearer <access_token>`. Returns `{ "trip": { ... } }` or `{ "trip": null }`.
-- **DELETE** `/trip` — permanently delete the current user’s saved trip. **Requires auth:** `Authorization: Bearer <access_token>`. Returns `{ "deleted": true }`.
-- **POST** `/chat` — send messages and get an assistant reply. Body: `{ "messages": [{ "role": "user", "text": "..." }], "trip_info": { ... }, "save_trip": false }`. **`save_trip` defaults to `false`.** When `true`, trip data is stored for the current user (requires `Authorization: Bearer <access_token>`); when `false`, any previously saved trip for that user is removed. Unauthenticated requests with `save_trip: true` receive 401.
+## Backend API (summary)
 
-The `/chat` endpoint currently returns a placeholder reply; you can add an LLM or other logic in `backend/main.py`.
+- **GET** `/health` — health check  
+- **POST** `/auth/register` — `{ "email", "password" }` (password ≥ 8 chars) → JWT + email  
+- **POST** `/auth/login` — same body → JWT  
+- **GET** `/trip` — saved trip (Bearer token required)  
+- **DELETE** `/trip` — delete saved trip + messages (Bearer)  
+- **POST** `/chat` — messages + optional `trip_info`, `save_trip`; streams SSE tokens  
 
-Saved trip data is stored in SQLite (`backend/saved_trips.db`) in a `saved_trips` table keyed by `user_id`. User accounts are stored in a `users` table in the same database (email + bcrypt-hashed password). JWT access tokens are used for authentication.
+`save_trip: true` requires a valid Bearer token. Rate limits apply to `/chat` (see `backend/.env.example` / `RATELIMIT_ENABLED`).
+
+Local development uses **SQLite** (`backend/local.db`) when `DATABASE_URL` is unset. Production uses **PostgreSQL** with async SQLAlchemy.
+
+---
 
 ## CI pipeline and quality checks
 
-GitHub Actions runs on push/PR to `main` (or `master`) and verifies:
+GitHub Actions runs on push/PR to `main` / `master`:
 
-- **Formatting** — Prettier (frontend), Black (backend)
-- **Linting** — ESLint (frontend), Ruff (backend)
-- **Unit tests** — Vitest with coverage (frontend), pytest with coverage (backend). Coverage must meet thresholds (frontend: see `vite.config.js`; backend: 50%).
-- **Security** — `npm audit` (frontend), Bandit + pip-audit (backend)
+- **Formatting:** Prettier (frontend), Black (backend)  
+- **Linting:** ESLint, Ruff  
+- **Tests:** Vitest + coverage (frontend), pytest + coverage ≥ 50% (backend)  
+- **Security:** `npm audit`, Bandit, pip-audit (some steps may be non-blocking)
 
-Run the same checks locally:
+Run locally:
 
-**Frontend (from project root):**
+**Frontend (repo root):**
+
 ```bash
 npm ci
 npm run format:check
@@ -160,7 +195,8 @@ npm run lint
 npm run test:coverage
 ```
 
-**Backend (from `backend/` with venv active):**
+**Backend (`backend/` with venv active):**
+
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
 black --check .
@@ -170,43 +206,36 @@ bandit -r . -x ./tests
 pip-audit -r requirements.txt
 ```
 
+---
+
 ## Deployment (Vercel + Render)
 
-**Frontend (Vercel)** — React/Vite at the repo root.
+**Frontend (Vercel)** — connect the repo; build `npm run build`, output `dist` (see `vercel.json`). Set **`VITE_API_URL`** to your Render API URL (no trailing slash).
 
-1. Connect the repo in [Vercel](https://vercel.com); use defaults or `vercel.json` (build: `npm run build`, output: `dist`).
-2. Set **`VITE_API_URL`** to your Render API URL (e.g. `https://mouse-mentor-api.onrender.com`), no trailing slash.
-3. Copy **`.env.example`** → `.env.local` for local production-like testing.
+**Backend (Render)** — root directory `backend/`; start `uvicorn main:app --host 0.0.0.0 --port $PORT`. Add **PostgreSQL**; set **`DATABASE_URL`**, **`JWT_SECRET_KEY`**, **`CORS_ORIGINS`**, and AI keys per `backend/.env.example`. Use **`render.yaml`** as a Blueprint if you prefer.
 
-**Backend (Render)** — FastAPI in `backend/`.
+| Environment | Reference file |
+| ----------- | -------------- |
+| Frontend | `.env.example` (root) — `VITE_API_URL` |
+| Backend | `backend/.env.example` |
 
-1. Use **`render.yaml`** as a Blueprint, or create a **Web Service** with root directory `backend`, build `pip install -r requirements.txt`, start `uvicorn main:app --host 0.0.0.0 --port $PORT`.
-2. Add a **PostgreSQL** database; Render sets **`DATABASE_URL`** (the app normalizes `postgres://` → `asyncpg`).
-3. Set **`JWT_SECRET_KEY`** (long random string) and **`CORS_ORIGINS`** to your Vercel origin(s), comma-separated.
-4. Set AI keys (**`GROQ_API_KEY`**, etc.) as in **`backend/.env.example`**.
-
-**Environment variables**
-
-| Where | File |
-|-------|------|
-| Frontend | **`.env.example`** (root) — `VITE_API_URL` |
-| Backend | **`backend/.env.example`** — `DATABASE_URL`, `JWT_SECRET_KEY`, `CORS_ORIGINS`, AI keys |
+---
 
 ## Pre-commit hook
 
-A pre-commit hook reformats and lints staged code so it passes the pipeline checks.
+Install [pre-commit](https://pre-commit.com/) and run `pre-commit install` from the repo root. Commits run Prettier/ESLint on staged frontend files and Black/Ruff on staged Python under `backend/`. Use `pre-commit run --all-files` to check the whole tree.
 
-**One-time setup:**
+---
 
-1. Install [pre-commit](https://pre-commit.com/) (e.g. `pip install pre-commit` or `brew install pre-commit`).
-2. From the project root, run:
-   ```bash
-   pre-commit install
-   ```
+## First-time user flow (optional)
 
-After that, every `git commit` will:
+1. Open **http://localhost:5173** and use **Sign in** / **Register** if you want saved data.  
+2. Complete or skip the **get-to-know-you** questionnaire (destination, dates, party, priorities, etc.).  
+3. On the last step, choose whether to **save your trip** (requires sign-in).  
+4. Chat with the assistant; signed-in users with saving enabled can **delete saved data** from the chat page.
 
-- **Frontend:** run Prettier and ESLint (with `--fix`) on staged JS/JSX/CSS/JSON and `index.html`.
-- **Backend:** run Black and Ruff (with `--fix`) on staged Python files under `backend/`.
+---
 
-If any tool changes files, the commit is aborted so you can review and re-commit. Run `pre-commit run --all-files` to check the whole repo without committing.
+## License / author
+
+Project author: **Sydney Edwards** · GitHub: [@sydneye434](https://github.com/sydneye434)
