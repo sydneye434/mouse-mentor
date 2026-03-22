@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="MouseMentor — Your AI Disney World trip planner for first-time visitors. Plan smarter, stress less."
+    />
+    <title>MouseMentor — Your first Disney trip, planned perfectly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /*
+       * Color tokens match src/App.css (pastel light mode + navy starry dark mode)
+       * Backgrounds: light = pink clouds + soft blue/pink wash; dark = stars + deep navy
+       */
+      :root {
+        --disney-red: #e8a0b8;
+        --disney-red-hover: #d88ba5;
+        --gold: #c9a86c;
+        --gold-soft: #e8c4d4;
+        --castle: #a8d4f0;
+        --castle-light: #7eb8da;
+        --surface: #e8f2f8;
+        --surface-elevated: #f8f4fa;
+        --ink: #2d3748;
+        --ink-muted: #6b7280;
+        --border: rgba(168, 212, 240, 0.6);
+        --bg-input: rgba(255, 255, 255, 0.9);
+        --radius: 14px;
+        --radius-sm: 10px;
+        --shadow-sm: 0 2px 8px rgba(126, 184, 218, 0.12);
+        --shadow-md: 0 6px 20px rgba(126, 184, 218, 0.18);
+        --shadow-magic: 0 4px 16px rgba(232, 160, 184, 0.2);
+        --font-display: "Playfair Display", Georgia, serif;
+        --font-body: "Inter", system-ui, sans-serif;
+      }
+
+      html[data-theme='dark'] {
+        --disney-red: #5b8fb9;
+        --disney-red-hover: #4a7fa3;
+        --gold: #7ba3c4;
+        --gold-soft: #9eb8d4;
+        --castle: #1e2a3a;
+        --castle-light: #3d5266;
+        --surface: #0d1117;
+        --surface-elevated: #161b22;
+        --ink: #e6edf3;
+        --ink-muted: #8b9cad;
+        --border: rgba(59, 82, 102, 0.5);
+        --bg-input: rgba(22, 27, 34, 0.95);
+        --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+        --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.5);
+        --shadow-magic: 0 4px 16px rgba(91, 143, 185, 0.2);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--font-body);
+        font-size: 1rem;
+        line-height: 1.6;
+        color: var(--ink);
+        background: var(--surface);
+        min-height: 100vh;
+        transition:
+          background 0.25s ease,
+          color 0.25s ease;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 1.25rem;
+      }
+
+      @media (min-width: 768px) {
+        .container {
+          padding: 0 2rem;
+        }
+      }
+
+      /* Soft pastel wash (matches .app::before in App.css) */
+      .landing__aurora {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(
+            ellipse 80% 50% at 50% -10%,
+            rgba(200, 220, 255, 0.4) 0%,
+            rgba(232, 210, 235, 0.25) 35%,
+            rgba(168, 212, 240, 0.15) 55%,
+            transparent 70%
+          ),
+          radial-gradient(
+            ellipse 60% 30% at 80% 80%,
+            rgba(232, 192, 212, 0.2) 0%,
+            transparent 50%
+          );
+      }
+
+      html[data-theme='dark'] .landing__aurora {
+        background:
+          radial-gradient(
+            ellipse 80% 50% at 50% -10%,
+            rgba(30, 42, 58, 0.6) 0%,
+            transparent 70%
+          ),
+          radial-gradient(
+            ellipse 60% 40% at 50% 100%,
+            rgba(15, 20, 28, 0.5) 0%,
+            transparent 50%
+          );
+      }
+
+      /* Pink fluffy clouds — light mode only (same SVG idea as App.jsx) */
+      .cloud-bg {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      html:not([data-theme='dark']) .cloud-bg {
+        display: block;
+      }
+
+      .cloud-bg__svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* Starry night — dark mode only */
+      .night-sky {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      html[data-theme='dark'] .night-sky {
+        display: block;
+      }
+
+      .night-sky__svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .night-star {
+        animation: star-flash 3.8s ease-in-out infinite;
+      }
+
+      .night-star:nth-child(odd) {
+        animation-delay: 0.4s;
+      }
+
+      .night-star:nth-child(3n) {
+        animation-delay: 0.9s;
+      }
+
+      .night-star:nth-child(5n) {
+        animation-delay: 1.4s;
+      }
+
+      .night-star:nth-child(7n) {
+        animation-delay: 0.2s;
+      }
+
+      @keyframes star-flash {
+        0%,
+        40%,
+        100% {
+          opacity: 1;
+        }
+        50%,
+        55% {
+          opacity: 0.08;
+        }
+      }
+
+      .landing__content {
+        position: relative;
+        z-index: 2;
+      }
+
+      /* Theme toggle — matches .theme-toggle in App.css */
+      .theme-toggle {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 10;
+        padding: 0.4rem 0.5rem;
+        font-size: 1.25rem;
+        line-height: 1;
+        background: rgba(255, 255, 255, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition:
+          background 0.2s,
+          transform 0.15s;
+      }
+
+      .theme-toggle:hover {
+        background: rgba(255, 255, 255, 0.6);
+        transform: scale(1.05);
+      }
+
+      html[data-theme='dark'] .theme-toggle {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+
+      html[data-theme='dark'] .theme-toggle:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      /* Hero — matches chat .header gradient + rounded bottom */
+      .hero {
+        position: relative;
+        min-height: 88vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 4.5rem 0 5rem;
+        background: linear-gradient(135deg, var(--castle) 0%, #b8dcee 100%);
+        border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+        border-radius: 0 0 20px 20px;
+        box-shadow: var(--shadow-md);
+        color: var(--ink);
+      }
+
+      .hero::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(232, 196, 212, 0.6) 50%,
+          transparent 100%
+        );
+        border-radius: 0 0 20px 20px;
+        pointer-events: none;
+      }
+
+      html[data-theme='dark'] .hero {
+        background: linear-gradient(135deg, #1e2a3a 0%, #252f3d 100%);
+        border-bottom-color: rgba(0, 0, 0, 0.4);
+        box-shadow: var(--shadow-md);
+      }
+
+      html[data-theme='dark'] .hero::after {
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(91, 143, 185, 0.25) 50%,
+          transparent 100%
+        );
+      }
+
+      .hero-inner {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+        max-width: 42rem;
+        margin: 0 auto;
+      }
+
+      .hero-badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--castle-light);
+        margin-bottom: 1.25rem;
+        padding: 0.35rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.45);
+      }
+
+      html[data-theme='dark'] .hero-badge {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--gold-soft);
+      }
+
+      .hero h1 {
+        font-family: var(--font-display);
+        font-size: clamp(2.25rem, 5vw, 3.25rem);
+        font-weight: 700;
+        line-height: 1.15;
+        margin: 0 0 1.25rem;
+        letter-spacing: -0.02em;
+        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+      }
+
+      html[data-theme='dark'] .hero h1 {
+        color: #e6edf3;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+
+      .hero h1 span {
+        color: #9e6b7a;
+        font-style: italic;
+      }
+
+      html[data-theme='dark'] .hero h1 span {
+        color: var(--gold-soft);
+      }
+
+      .hero-lede {
+        font-size: 1.125rem;
+        color: var(--ink-muted);
+        margin: 0 0 2rem;
+        max-width: 36rem;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      html[data-theme='dark'] .hero-lede {
+        color: #8b9cad;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-family: var(--font-body);
+        font-weight: 600;
+        font-size: 1rem;
+        padding: 0.95rem 1.75rem;
+        border-radius: 999px;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease,
+          background 0.2s ease;
+      }
+
+      .btn-primary {
+        background: var(--disney-red);
+        color: #2d3748;
+        box-shadow: var(--shadow-magic);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        background: var(--disney-red-hover);
+      }
+
+      html[data-theme='dark'] .btn-primary {
+        color: #e6edf3;
+      }
+
+      .hero-note {
+        margin-top: 1.5rem;
+        font-size: 0.875rem;
+        color: var(--ink-muted);
+      }
+
+      .section {
+        padding: 4rem 0;
+      }
+
+      @media (min-width: 768px) {
+        .section {
+          padding: 5.5rem 0;
+        }
+      }
+
+      .section-header {
+        text-align: center;
+        max-width: 36rem;
+        margin: 0 auto 3rem;
+      }
+
+      .section-header h2 {
+        font-family: var(--font-display);
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        font-weight: 700;
+        color: var(--ink);
+        margin: 0 0 0.75rem;
+      }
+
+      .section-header p {
+        margin: 0;
+        color: var(--ink-muted);
+        font-size: 1.05rem;
+      }
+
+      .how-grid {
+        display: grid;
+        gap: 1.5rem;
+      }
+
+      @media (min-width: 768px) {
+        .how-grid {
+          grid-template-columns: repeat(3, 1fr);
+          gap: 2rem;
+        }
+      }
+
+      .how-card {
+        background: var(--surface-elevated);
+        border-radius: var(--radius);
+        padding: 2rem 1.5rem;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border);
+        text-align: center;
+        transition:
+          transform 0.2s ease,
+          border-color 0.2s ease;
+      }
+
+      .how-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(168, 212, 240, 0.9);
+        box-shadow: var(--shadow-md);
+      }
+
+      html[data-theme='dark'] .how-card:hover {
+        border-color: rgba(91, 143, 185, 0.45);
+      }
+
+      .how-step {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--castle) 0%, #b8dcee 100%);
+        color: #5a4a5c;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 1.25rem;
+        margin-bottom: 1.25rem;
+        border: 2px solid var(--border);
+      }
+
+      html[data-theme='dark'] .how-step {
+        background: linear-gradient(135deg, #1e2a3a 0%, #2d3d52 100%);
+        color: var(--gold-soft);
+        border-color: rgba(91, 143, 185, 0.4);
+      }
+
+      .how-card h3 {
+        font-family: var(--font-display);
+        font-size: 1.25rem;
+        color: var(--ink);
+        margin: 0 0 0.75rem;
+      }
+
+      .how-card p {
+        margin: 0;
+        font-size: 0.95rem;
+        color: var(--ink-muted);
+      }
+
+      .how-flow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem 0.75rem;
+        margin: -1rem 0 2.5rem;
+        font-size: clamp(0.85rem, 2.5vw, 1rem);
+        font-weight: 600;
+        color: var(--castle-light);
+        text-align: center;
+      }
+
+      html[data-theme='dark'] .how-flow {
+        color: var(--gold);
+      }
+
+      .how-flow span.arrow {
+        color: var(--gold);
+        font-weight: 700;
+        opacity: 0.95;
+      }
+
+      @media (max-width: 639px) {
+        .how-flow {
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+        .how-flow span.arrow {
+          transform: rotate(90deg);
+          margin: 0.15rem 0;
+        }
+      }
+
+      .testimonials {
+        background: linear-gradient(
+          180deg,
+          var(--surface) 0%,
+          rgba(232, 196, 212, 0.12) 100%
+        );
+      }
+
+      html[data-theme='dark'] .testimonials {
+        background: linear-gradient(
+          180deg,
+          var(--surface) 0%,
+          rgba(30, 42, 58, 0.35) 100%
+        );
+      }
+
+      .testimonial-grid {
+        display: grid;
+        gap: 1.5rem;
+      }
+
+      @media (min-width: 900px) {
+        .testimonial-grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+
+      .testimonial {
+        background: var(--surface-elevated);
+        border-radius: var(--radius);
+        padding: 1.75rem;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .stars {
+        color: var(--gold);
+        letter-spacing: 0.15em;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+      }
+
+      .testimonial blockquote {
+        margin: 0 0 1.25rem;
+        font-size: 0.98rem;
+        color: var(--ink);
+        line-height: 1.65;
+      }
+
+      .testimonial footer {
+        font-size: 0.875rem;
+        color: var(--ink-muted);
+      }
+
+      .testimonial strong {
+        display: block;
+        color: var(--castle-light);
+        font-weight: 600;
+        margin-bottom: 0.15rem;
+      }
+
+      html[data-theme='dark'] .testimonial strong {
+        color: var(--gold-soft);
+      }
+
+      .pricing-grid {
+        display: grid;
+        gap: 1.5rem;
+        max-width: 880px;
+        margin: 0 auto;
+      }
+
+      @media (min-width: 768px) {
+        .pricing-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 2rem;
+          align-items: stretch;
+        }
+      }
+
+      .price-card {
+        background: var(--surface-elevated);
+        border-radius: var(--radius);
+        padding: 2rem 1.75rem;
+        border: 2px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .price-card.featured {
+        border-color: var(--gold);
+        background: linear-gradient(
+          165deg,
+          var(--surface-elevated) 0%,
+          rgba(168, 212, 240, 0.15) 100%
+        );
+        position: relative;
+      }
+
+      html[data-theme='dark'] .price-card.featured {
+        background: linear-gradient(
+          165deg,
+          var(--surface-elevated) 0%,
+          rgba(91, 143, 185, 0.12) 100%
+        );
+      }
+
+      .price-card.featured::before {
+        content: 'Most popular';
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--ink);
+        color: var(--surface-elevated);
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 0.35rem 0.9rem;
+        border-radius: 999px;
+      }
+
+      html[data-theme='dark'] .price-card.featured::before {
+        background: var(--gold);
+        color: #0d1117;
+      }
+
+      .price-card h3 {
+        font-family: var(--font-display);
+        font-size: 1.5rem;
+        margin: 0 0 0.5rem;
+        color: var(--ink);
+      }
+
+      .price-amount {
+        font-family: var(--font-display);
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--ink);
+        margin: 0 0 0.25rem;
+      }
+
+      .price-amount small {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--ink-muted);
+      }
+
+      .price-card > p.sub {
+        margin: 0 0 1.5rem;
+        font-size: 0.95rem;
+        color: var(--ink-muted);
+      }
+
+      .price-card ul {
+        list-style: none;
+        margin: 0 0 1.75rem;
+        padding: 0;
+        flex-grow: 1;
+      }
+
+      .price-card li {
+        position: relative;
+        padding-left: 1.5rem;
+        margin-bottom: 0.65rem;
+        font-size: 0.95rem;
+        color: var(--ink);
+      }
+
+      .price-card li::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        color: var(--gold);
+        font-weight: 700;
+      }
+
+      .price-card .btn {
+        width: 100%;
+      }
+
+      .price-card .btn-outline {
+        background: transparent;
+        color: var(--ink);
+        border: 2px solid var(--border);
+      }
+
+      .price-card .btn-outline:hover {
+        background: rgba(168, 212, 240, 0.2);
+        border-color: var(--castle-light);
+        box-shadow: none;
+        transform: none;
+      }
+
+      html[data-theme='dark'] .price-card .btn-outline:hover {
+        background: rgba(91, 143, 185, 0.15);
+      }
+
+      .site-footer {
+        background: linear-gradient(180deg, var(--surface-elevated) 0%, var(--surface) 100%);
+        border-top: 2px solid var(--border);
+        color: var(--ink-muted);
+        padding: 3rem 0 2rem;
+      }
+
+      html[data-theme='dark'] .site-footer {
+        background: #161b22;
+        border-top-color: var(--border);
+      }
+
+      .footer-grid {
+        display: grid;
+        gap: 2rem;
+        margin-bottom: 2.5rem;
+      }
+
+      @media (min-width: 640px) {
+        .footer-grid {
+          grid-template-columns: 2fr 1fr 1fr;
+        }
+      }
+
+      .footer-brand {
+        font-family: var(--font-display);
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--ink);
+        margin: 0 0 0.75rem;
+      }
+
+      .footer-brand span {
+        color: #9e6b7a;
+      }
+
+      html[data-theme='dark'] .footer-brand span {
+        color: var(--gold-soft);
+      }
+
+      .footer-about {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.65;
+        color: var(--ink-muted);
+        max-width: 22rem;
+      }
+
+      .footer-col h4 {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--castle-light);
+        margin: 0 0 1rem;
+      }
+
+      html[data-theme='dark'] .footer-col h4 {
+        color: var(--gold);
+      }
+
+      .footer-col ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .footer-col a {
+        color: var(--ink-muted);
+        text-decoration: none;
+        font-size: 0.9rem;
+        display: block;
+        margin-bottom: 0.5rem;
+        transition: color 0.2s;
+      }
+
+      .footer-col a:hover {
+        color: var(--castle-light);
+      }
+
+      html[data-theme='dark'] .footer-col a:hover {
+        color: var(--gold-soft);
+      }
+
+      .footer-bottom {
+        border-top: 1px solid var(--border);
+        padding-top: 1.5rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--ink-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="landing__aurora" aria-hidden="true"></div>
+
+    <!-- Light mode: fluffy pink clouds (same structure as src/App.jsx) -->
+    <div class="cloud-bg" aria-hidden="true">
+      <svg
+        class="cloud-bg__svg"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <g class="cloud cloud--1">
+          <animateTransform
+            attributeName="transform"
+            type="translate"
+            values="120 0; -25 0"
+            dur="60s"
+            repeatCount="indefinite"
+          />
+          <ellipse cx="20" cy="25" rx="14" ry="9" fill="rgba(248, 218, 230, 0.8)" />
+          <ellipse cx="28" cy="22" rx="12" ry="8" fill="rgba(248, 218, 230, 0.8)" />
+          <ellipse cx="35" cy="26" rx="13" ry="8" fill="rgba(248, 218, 230, 0.8)" />
+          <ellipse cx="25" cy="28" rx="11" ry="7" fill="rgba(248, 218, 230, 0.8)" />
+        </g>
+        <g class="cloud cloud--2">
+          <animateTransform
+            attributeName="transform"
+            type="translate"
+            values="120 0; -25 0"
+            dur="60s"
+            repeatCount="indefinite"
+            begin="-10s"
+          />
+          <ellipse cx="65" cy="18" rx="16" ry="10" fill="rgba(245, 220, 232, 0.75)" />
+          <ellipse cx="75" cy="16" rx="14" ry="9" fill="rgba(245, 220, 232, 0.75)" />
+          <ellipse cx="82" cy="20" rx="12" ry="8" fill="rgba(245, 220, 232, 0.75)" />
+          <ellipse cx="70" cy="22" rx="13" ry="8" fill="rgba(245, 220, 232, 0.75)" />
+        </g>
+        <g class="cloud cloud--3">
+          <animateTransform
+            attributeName="transform"
+            type="translate"
+            values="120 0; -25 0"
+            dur="60s"
+            repeatCount="indefinite"
+            begin="-20s"
+          />
+          <ellipse cx="45" cy="55" rx="18" ry="11" fill="rgba(250, 225, 235, 0.7)" />
+          <ellipse cx="58" cy="52" rx="15" ry="10" fill="rgba(250, 225, 235, 0.7)" />
+          <ellipse cx="68" cy="56" rx="14" ry="9" fill="rgba(250, 225, 235, 0.7)" />
+          <ellipse cx="52" cy="58" rx="16" ry="9" fill="rgba(250, 225, 235, 0.7)" />
+        </g>
+        <g class="cloud cloud--4">
+          <animateTransform
+            attributeName="transform"
+            type="translate"
+            values="120 0; -25 0"
+            dur="60s"
+            repeatCount="indefinite"
+            begin="-30s"
+          />
+          <ellipse cx="8" cy="62" rx="15" ry="10" fill="rgba(248, 215, 228, 0.75)" />
+          <ellipse cx="18" cy="58" rx="13" ry="8" fill="rgba(248, 215, 228, 0.75)" />
+          <ellipse cx="25" cy="63" rx="12" ry="8" fill="rgba(248, 215, 228, 0.75)" />
+        </g>
+        <g class="cloud cloud--5">
+          <animateTransform
+            attributeName="transform"
+            type="translate"
+            values="120 0; -25 0"
+            dur="60s"
+            repeatCount="indefinite"
+            begin="-40s"
+          />
+          <ellipse cx="78" cy="72" rx="14" ry="9" fill="rgba(246, 222, 232, 0.75)" />
+          <ellipse cx="88" cy="70" rx="12" ry="8" fill="rgba(246, 222, 232, 0.75)" />
+          <ellipse cx="92" cy="76" rx="10" ry="7" fill="rgba(246, 222, 232, 0.75)" />
+          <ellipse cx="82" cy="75" rx="11" ry="7" fill="rgba(246, 222, 232, 0.75)" />
+        </g>
+        <g class="cloud cloud--6">
+          <animateTransform
+            attributeName="transform"
+            type="translate"
+            values="120 0; -25 0"
+            dur="60s"
+            repeatCount="indefinite"
+            begin="-50s"
+          />
+          <ellipse cx="32" cy="82" rx="13" ry="8" fill="rgba(247, 218, 228, 0.7)" />
+          <ellipse cx="42" cy="79" rx="11" ry="7" fill="rgba(247, 218, 228, 0.7)" />
+          <ellipse cx="48" cy="84" rx="12" ry="7" fill="rgba(247, 218, 228, 0.7)" />
+        </g>
+      </svg>
+    </div>
+
+    <!-- Dark mode: twinkling stars (populated by script; matches App.jsx) -->
+    <div class="night-sky" aria-hidden="true">
+      <svg class="night-sky__svg" viewBox="0 0 100 100" preserveAspectRatio="none" id="nightSkySvg"></svg>
+    </div>
+
+    <button
+      type="button"
+      class="theme-toggle"
+      id="themeToggle"
+      aria-label="Toggle dark mode"
+      title="Toggle theme"
+    >
+      🌙
+    </button>
+
+    <div class="landing__content">
+      <header class="hero" id="top">
+        <div class="container hero-inner">
+          <p class="hero-badge">AI trip planning · Walt Disney World</p>
+          <h1>Your first Disney trip, <span>planned perfectly</span></h1>
+          <p class="hero-lede">
+            MouseMentor walks you through the basics, then pairs you with an AI
+            guide that knows parks, dining, and timing—so you spend less time
+            stressing and more time making memories.
+          </p>
+          <a class="btn btn-primary" href="/">Start planning free</a>
+          <p class="hero-note">No credit card required · Built for first-time visitors</p>
+        </div>
+      </header>
+
+      <section class="section" id="how-it-works" aria-labelledby="how-heading">
+        <div class="container">
+          <div class="section-header">
+            <h2 id="how-heading">How it works</h2>
+            <p>Three simple steps from “I’ve never been” to “I’ve got a plan.”</p>
+          </div>
+
+          <p class="how-flow">
+            <span>Answer a few questions</span>
+            <span class="arrow" aria-hidden="true">→</span>
+            <span>Chat with your AI guide</span>
+            <span class="arrow" aria-hidden="true">→</span>
+            <span>Get your optimized itinerary</span>
+          </p>
+
+          <div class="how-grid">
+            <article class="how-card">
+              <div class="how-step" aria-hidden="true">1</div>
+              <h3>Answer a few questions</h3>
+              <p>
+                Tell us about your dates, party size, pace, and must-dos. It only
+                takes a minute—and you can skip anything you’re not sure about yet.
+              </p>
+            </article>
+            <article class="how-card">
+              <div class="how-step" aria-hidden="true">2</div>
+              <h3>Chat with your AI guide</h3>
+              <p>
+                Ask anything: Genie+, dining reservations, which park on which day,
+                or what to pack. Your guide keeps your trip details in mind.
+              </p>
+            </article>
+            <article class="how-card">
+              <div class="how-step" aria-hidden="true">3</div>
+              <h3>Get your optimized itinerary</h3>
+              <p>
+                Turn your conversation into a clear, day-by-day plan you can tweak,
+                save, and take with you—optimized for first-timers, not overwhelm.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section testimonials" id="stories" aria-labelledby="stories-heading">
+        <div class="container">
+          <div class="section-header">
+            <h2 id="stories-heading">Loved by first-time Disney families</h2>
+            <p>Real stories from guests who started where you are.</p>
+          </div>
+          <div class="testimonial-grid">
+            <article class="testimonial">
+              <p class="stars" aria-label="5 out of 5 stars">★★★★★</p>
+              <blockquote>
+                “We were terrified of Genie+ and park hopping. MouseMentor broke it
+                down in plain English—we knew exactly what to book and when. Our kids
+                still talk about Magic Kingdom.”
+              </blockquote>
+              <footer>
+                <strong>The Martinez family</strong>
+                Orlando trip · First visit
+              </footer>
+            </article>
+            <article class="testimonial">
+              <p class="stars" aria-label="5 out of 5 stars">★★★★★</p>
+              <blockquote>
+                “I’m the planner in our house and I was drowning in blogs. The AI
+                guide felt like a friend who’d been a hundred times—without the
+                judgment when I asked ‘dumb’ questions.”
+              </blockquote>
+              <footer>
+                <strong>Jennifer K.</strong>
+                Ohio · Traveled with toddler
+              </footer>
+            </article>
+            <article class="testimonial">
+              <p class="stars" aria-label="5 out of 5 stars">★★★★★</p>
+              <blockquote>
+                “We splurged on character dining and didn’t waste a single meal.
+                The itinerary matched our budget and energy level. Worth it before we
+                even stepped through the turnstiles.”
+              </blockquote>
+              <footer>
+                <strong>Derek &amp; Sam</strong>
+                Austin · Anniversary trip
+              </footer>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="pricing" aria-labelledby="pricing-heading">
+        <div class="container">
+          <div class="section-header">
+            <h2 id="pricing-heading">Simple pricing</h2>
+            <p>Start free. Upgrade when you’re ready for the full magic.</p>
+          </div>
+          <div class="pricing-grid">
+            <div class="price-card">
+              <h3>Free</h3>
+              <p class="price-amount">$0</p>
+              <p class="sub">Everything you need to explore and plan your first trip.</p>
+              <ul>
+                <li>Guided questionnaire &amp; trip profile</li>
+                <li>AI chat with your trip context</li>
+                <li>Core park &amp; dining tips</li>
+                <li>Save your plan on one device</li>
+              </ul>
+              <a class="btn btn-outline" href="/">Start planning free</a>
+            </div>
+            <div class="price-card featured">
+              <h3>Pro</h3>
+              <p class="price-amount">$12 <small>one-time</small></p>
+              <p class="sub">Unlock exports and deeper planning for your vacation.</p>
+              <ul>
+                <li>Everything in Free</li>
+                <li>Printable &amp; shareable itinerary PDF</li>
+                <li>Priority-style prompts &amp; longer chat memory</li>
+                <li>Email support within 48 hours</li>
+                <li>Good for the life of your trip planning</li>
+              </ul>
+              <a class="btn btn-primary" href="/">Get Pro — $12</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="site-footer">
+        <div class="container">
+          <div class="footer-grid">
+            <div>
+              <p class="footer-brand">Mouse<span>Mentor</span></p>
+              <p class="footer-about">
+                An AI-powered Disney World trip planner for first-time visitors.
+                Not affiliated with Disney. Trademarks belong to their respective
+                owners.
+              </p>
+            </div>
+            <div class="footer-col">
+              <h4>Product</h4>
+              <ul>
+                <li><a href="#how-it-works">How it works</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="/">Open app</a></li>
+              </ul>
+            </div>
+            <div class="footer-col">
+              <h4>Legal</h4>
+              <ul>
+                <li><a href="#">Privacy</a></li>
+                <li><a href="#">Terms</a></li>
+                <li><a href="#">Contact</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="footer-bottom">
+            © <span id="year"></span> MouseMentor. Made for families heading to the World for the first time.
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        var KEY = 'mouse-mentor-theme'
+        var root = document.documentElement
+        var toggle = document.getElementById('themeToggle')
+
+        function getStored() {
+          try {
+            var t = localStorage.getItem(KEY)
+            if (t === 'dark' || t === 'light') return t
+          } catch (e) {}
+          return null
+        }
+
+        function applyTheme(theme) {
+          root.setAttribute('data-theme', theme)
+          try {
+            localStorage.setItem(KEY, theme)
+          } catch (e) {}
+          if (toggle) {
+            toggle.textContent = theme === 'dark' ? '☀️' : '🌙'
+            toggle.setAttribute(
+              'aria-label',
+              theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+            )
+            toggle.title = theme === 'dark' ? 'Light mode' : 'Dark mode'
+          }
+        }
+
+        applyTheme(getStored() || 'light')
+
+        if (toggle) {
+          toggle.addEventListener('click', function () {
+            var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+            applyTheme(next)
+          })
+        }
+
+        document.getElementById('year').textContent = new Date().getFullYear()
+
+        /* Star field — same coordinates / scaling as src/App.jsx */
+        var positions = [
+          [8, 12], [22, 35], [48, 6], [68, 48], [88, 18], [12, 62], [35, 78], [58, 65],
+          [85, 82], [4, 40], [42, 25], [92, 52], [18, 88], [75, 28], [55, 92], [30, 20],
+          [60, 45], [15, 55], [80, 70], [50, 85], [5, 75], [95, 35], [72, 8], [25, 42],
+          [88, 58], [10, 12], [45, 68], [65, 22], [38, 92], [92, 78], [2, 28], [55, 5],
+          [18, 38], [78, 95], [52, 15], [70, 50], [33, 60], [90, 40], [14, 72], [62, 30],
+          [40, 85]
+        ]
+        var svg = document.getElementById('nightSkySvg')
+        if (svg) {
+          var NS = 'http://www.w3.org/2000/svg'
+          var defs = document.createElementNS(NS, 'defs')
+          var path = document.createElementNS(NS, 'path')
+          path.setAttribute(
+            'id',
+            'night-star-shape'
+          )
+          path.setAttribute(
+            'd',
+            'M0 -1 L 0.29 -0.31 L 0.95 -0.31 L 0.47 0.12 L 0.59 0.81 L 0 0.38 L -0.59 0.81 L -0.47 0.12 L -0.95 -0.31 L -0.29 -0.31 Z'
+          )
+          path.setAttribute('fill', 'inherit')
+          defs.appendChild(path)
+          svg.appendChild(defs)
+          positions.forEach(function (pair, i) {
+            var x = pair[0]
+            var y = pair[1]
+            var size = i % 4 === 0 ? 'large' : i % 3 === 0 ? 'medium' : 'small'
+            var scale = size === 'large' ? 0.38 : size === 'medium' ? 0.28 : 0.22
+            var g = document.createElementNS(NS, 'g')
+            g.setAttribute(
+              'class',
+              'night-star night-star--' + size
+            )
+            g.setAttribute(
+              'transform',
+              'translate(' + x + ', ' + y + ') scale(' + scale + ')'
+            )
+            g.setAttribute('fill', 'rgba(255, 255, 255, 0.92)')
+            var use = document.createElementNS(NS, 'use')
+            use.setAttribute('href', '#night-star-shape')
+            g.appendChild(use)
+            svg.appendChild(g)
+          })
+        }
+      })()
+    </script>
+  </body>
+</html>
