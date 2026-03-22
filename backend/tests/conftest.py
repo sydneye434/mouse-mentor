@@ -7,6 +7,8 @@ import os
 
 # Disable slowapi during tests so suite can POST /chat many times without 429.
 os.environ.setdefault("RATELIMIT_ENABLED", "false")
+# Fresh DB per pytest process (avoids UNIQUE email failures on reused ./local.db).
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from unittest.mock import AsyncMock, patch
 

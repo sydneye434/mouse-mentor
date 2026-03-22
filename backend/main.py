@@ -323,9 +323,7 @@ async def chat(
                 text = "".join(full_reply)
                 try:
                     async with async_session_maker() as session:
-                        msgs = [
-                            {"role": m.role, "text": m.text} for m in body.messages
-                        ]
+                        msgs = [{"role": m.role, "text": m.text} for m in body.messages]
                         msgs.append({"role": "assistant", "text": text})
                         await store.set_chat_messages(session, user_id, msgs)
                         await session.commit()
