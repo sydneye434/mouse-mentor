@@ -12,6 +12,7 @@ import {
   MapPin,
   RefreshCw,
   Zap,
+  UtensilsCrossed,
 } from 'lucide-react'
 import { DESTINATIONS } from '../tripInfo'
 
@@ -53,6 +54,7 @@ export default function DashboardHome({
   onAskGuide,
   onItineraryPreview,
   onOpenLightningLaneGuide,
+  onOpenDining,
   onPlanTrip,
   onEditTrip,
 }) {
@@ -292,6 +294,31 @@ export default function DashboardHome({
           className="mt-4 w-full rounded-[var(--radius-pill)] border-[1.5px] border-amber-600/60 bg-amber-50/80 py-2.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-500/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50"
         >
           Open Lightning Lane Guide
+        </button>
+      </section>
+
+      {/* Dining */}
+      <section
+        className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-5 shadow-sm"
+        aria-labelledby="dash-dining-heading"
+      >
+        <h3
+          id="dash-dining-heading"
+          className="flex items-center gap-2 font-display text-lg font-semibold text-[var(--color-text-heading)]"
+        >
+          <UtensilsCrossed className="h-5 w-5 text-orange-600" aria-hidden />
+          Dining
+        </h3>
+        <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+          Top first-timer picks, want-to-go list, and a countdown to your 60-day
+          booking window.
+        </p>
+        <button
+          type="button"
+          onClick={onOpenDining}
+          className="mt-4 w-full rounded-[var(--radius-pill)] border-[1.5px] border-orange-600/50 bg-orange-50/90 py-2.5 text-sm font-semibold text-orange-950 hover:bg-orange-100 dark:border-orange-500/40 dark:bg-orange-950/25 dark:text-orange-100 dark:hover:bg-orange-950/40"
+        >
+          Open Dining
         </button>
       </section>
 

@@ -51,6 +51,9 @@ async def get_trip_bundle(
         "trip": dict(row.trip_data),
         "generated_itinerary": row.generated_itinerary,
         "lightning_lane_guide": row.lightning_lane_guide,
+        "dining_restaurants": row.dining_restaurants,
+        "dining_want_to_go": list(row.dining_want_to_go or []),
+        "dining_reminder_enabled": bool(row.dining_reminder_enabled),
     }
 
 
@@ -77,6 +80,39 @@ async def set_lightning_lane_guide(
     if row is None:
         raise ValueError("No saved trip for user")
     row.lightning_lane_guide = guide
+    await session.flush()
+
+
+async def set_dining_restaurants(
+    session: AsyncSession, user_id: int, data: dict[str, Any]
+) -> None:
+    result = await session.execute(
+        select(SavedTrip).where(SavedTrip.user_id == user_id)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise ValueError("No saved trip for user")
+    row.dining_restaurants = data
+    await session.flush()
+
+
+async def update_dining_preferences(
+    session: AsyncSession,
+    user_id: int,
+    *,
+    want_to_go: Optional[list[str]] = None,
+    reminder_enabled: Optional[bool] = None,
+) -> None:
+    result = await session.execute(
+        select(SavedTrip).where(SavedTrip.user_id == user_id)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise ValueError("No saved trip for user")
+    if want_to_go is not None:
+        row.dining_want_to_go = want_to_go
+    if reminder_enabled is not None:
+        row.dining_reminder_enabled = reminder_enabled
     await session.flush()
 
 

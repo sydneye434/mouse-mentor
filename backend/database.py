@@ -137,6 +137,53 @@ def _migrate_saved_trips_lightning_lane_guide(connection) -> None:
         )
 
 
+def _migrate_saved_trips_dining(connection) -> None:
+    """Dining picks, want-to-go ids, reminder flag."""
+    insp = inspect(connection)
+    try:
+        cols = [c["name"] for c in insp.get_columns("saved_trips")]
+    except Exception:
+        return
+    dialect = connection.dialect.name
+    if "dining_restaurants" not in cols:
+        if dialect == "sqlite":
+            connection.execute(
+                text("ALTER TABLE saved_trips ADD COLUMN dining_restaurants TEXT")
+            )
+        else:
+            connection.execute(
+                text(
+                    "ALTER TABLE saved_trips ADD COLUMN IF NOT EXISTS dining_restaurants JSONB"
+                )
+            )
+    if "dining_want_to_go" not in cols:
+        if dialect == "sqlite":
+            connection.execute(
+                text("ALTER TABLE saved_trips ADD COLUMN dining_want_to_go TEXT")
+            )
+        else:
+            connection.execute(
+                text(
+                    "ALTER TABLE saved_trips ADD COLUMN IF NOT EXISTS dining_want_to_go JSONB"
+                )
+            )
+    if "dining_reminder_enabled" not in cols:
+        if dialect == "sqlite":
+            connection.execute(
+                text(
+                    "ALTER TABLE saved_trips ADD COLUMN dining_reminder_enabled "
+                    "BOOLEAN NOT NULL DEFAULT 0"
+                )
+            )
+        else:
+            connection.execute(
+                text(
+                    "ALTER TABLE saved_trips ADD COLUMN IF NOT EXISTS dining_reminder_enabled "
+                    "BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+
+
 async def init_db() -> None:
     """Create tables if they do not exist; migrate legacy schemas."""
     async with engine.begin() as conn:
@@ -144,3 +191,4 @@ async def init_db() -> None:
         await conn.run_sync(_migrate_users_is_pro_column)
         await conn.run_sync(_migrate_saved_trips_generated_itinerary)
         await conn.run_sync(_migrate_saved_trips_lightning_lane_guide)
+        await conn.run_sync(_migrate_saved_trips_dining)

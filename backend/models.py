@@ -53,6 +53,14 @@ class SavedTrip(Base):
     lightning_lane_guide: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JSON, nullable=True
     )
+    """Top 10 AI dining picks + user prefs (see dining_recommendations)."""
+    dining_restaurants: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JSON, nullable=True
+    )
+    dining_want_to_go: Mapped[Optional[list[Any]]] = mapped_column(JSON, nullable=True)
+    dining_reminder_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

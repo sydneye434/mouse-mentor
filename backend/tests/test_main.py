@@ -518,3 +518,34 @@ def test_lightning_lane_guide_generate(mock_ll):
     assert "guide" in data
     assert data["guide"]["intro"] == "LL intro"
     mock_ll.assert_called_once()
+
+
+@patch(
+    "main.dining_rec.generate_top_restaurants",
+    return_value={
+        "restaurants": [
+            {
+                "id": "test-1",
+                "name": "Test Kitchen",
+                "location": "EPCOT",
+                "brief_description": "Fun for families.",
+                "price_range": "$$",
+                "best_for_your_group": "Great with kids",
+            }
+        ]
+    },
+)
+def test_dining_generate_returns_restaurants(mock_dining):
+    trip = {
+        "destination": "disney-world",
+        "arrival_date": "2025-08-01",
+        "departure_date": "2025-08-05",
+    }
+    response = client.post(
+        "/api/dining/generate", json={"trip_info": trip}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "restaurants" in data
+    assert len(data["restaurants"]) >= 1
+    mock_dining.assert_called_once()

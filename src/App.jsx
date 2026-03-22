@@ -12,6 +12,7 @@ import GetToKnowYou from './components/GetToKnowYou.jsx'
 import DashboardHome from './components/DashboardHome.jsx'
 import ItineraryPage from './components/ItineraryPage.jsx'
 import LightningLaneGuidePage from './components/LightningLaneGuidePage.jsx'
+import DiningPage from './components/DiningPage.jsx'
 import TripSummary from './components/TripSummary.jsx'
 import AuthModal from './components/AuthModal.jsx'
 import PaywallModal from './components/PaywallModal.jsx'
@@ -26,6 +27,7 @@ const THEME_STORAGE_KEY = 'mouse-mentor-theme'
 const SCREEN_STORAGE_KEY = 'mouse-mentor-screen'
 const ITINERARY_STORAGE_KEY = 'mouse-mentor-structured-itinerary'
 const LL_GUIDE_STORAGE_KEY = 'mouse-mentor-lightning-lane-guide'
+const DINING_STORAGE_KEY = 'mouse-mentor-dining'
 
 function getStoredTheme() {
   try {
@@ -168,6 +170,15 @@ export default function App() {
   const [lightningLoading, setLightningLoading] = useState(false)
   const [lightningError, setLightningError] = useState(null)
   const llAutoRequestedRef = useRef(false)
+  const [diningRestaurants, setDiningRestaurants] = useState(null)
+  const [diningWantToGo, setDiningWantToGo] = useState([])
+  const [diningReminder, setDiningReminder] = useState(false)
+  const [diningLoading, setDiningLoading] = useState(false)
+  const [diningGenerating, setDiningGenerating] = useState(false)
+  const [diningError, setDiningError] = useState(null)
+  const [diningDaysUntil, setDiningDaysUntil] = useState(null)
+  const [diningBookingOpened, setDiningBookingOpened] = useState(false)
+  const [diningOpensAt, setDiningOpensAt] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
   const checkoutHandledRef = useRef(false)
@@ -281,11 +292,21 @@ export default function App() {
     setItineraryError(null)
     setLightningGuide(null)
     setLightningError(null)
+    setDiningRestaurants(null)
+    setDiningWantToGo([])
+    setDiningReminder(false)
+    setDiningDaysUntil(null)
+    setDiningBookingOpened(false)
+    setDiningOpensAt(null)
+    setDiningError(null)
     try {
       localStorage.removeItem(ITINERARY_STORAGE_KEY)
     } catch {}
     try {
       localStorage.removeItem(LL_GUIDE_STORAGE_KEY)
+    } catch {}
+    try {
+      localStorage.removeItem(DINING_STORAGE_KEY)
     } catch {}
     chatHistoryLoadedRef.current = false
   }, [])
@@ -537,6 +558,176 @@ export default function App() {
     [user?.token, handleLogout]
   )
 
+  const loadDiningFromApi = useCallback(async () => {
+    if (!user?.token) return
+    setDiningLoading(true)
+    setDiningError(null)
+    try {
+      const res = await fetch(`${API_BASE}/api/dining`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      if (res.status === 401) {
+        handleLogout()
+        return
+      }
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        const detail = errJson.detail
+        throw new Error(
+          typeof detail === 'string' ? detail : 'Could not load dining'
+        )
+      }
+      const data = await res.json()
+      setDiningRestaurants(data.restaurants)
+      setDiningWantToGo(data.want_to_go || [])
+      setDiningReminder(!!data.reminder_enabled)
+      setDiningDaysUntil(data.days_until_booking_window ?? null)
+      setDiningBookingOpened(!!data.booking_window_opened)
+      setDiningOpensAt(data.booking_window_opens_at)
+    } catch (e) {
+      setDiningError(e.message || 'Could not load dining.')
+    } finally {
+      setDiningLoading(false)
+    }
+  }, [user?.token, handleLogout])
+
+  function persistGuestDining(restaurants, want, reminder) {
+    try {
+      localStorage.setItem(
+        DINING_STORAGE_KEY,
+        JSON.stringify({
+          restaurants,
+          wantToGo: want,
+          reminderEnabled: reminder,
+        })
+      )
+    } catch {}
+  }
+
+  async function requestGenerateDining() {
+    if (!tripInfo) return
+    setDiningGenerating(true)
+    setDiningError(null)
+    try {
+      const body = { trip_info: toTripInfoPayload(tripInfo) }
+      const headers = { 'Content-Type': 'application/json' }
+      if (user?.token) headers.Authorization = `Bearer ${user.token}`
+      const res = await fetch(`${API_BASE}/api/dining/generate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      })
+      if (res.status === 401) {
+        handleLogout()
+        return
+      }
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        const detail = errJson.detail
+        throw new Error(
+          typeof detail === 'string'
+            ? detail
+            : 'Could not generate dining list'
+        )
+      }
+      const data = await res.json()
+      if (user?.token) {
+        await loadDiningFromApi()
+      } else {
+        setDiningRestaurants(data.restaurants)
+        persistGuestDining(data.restaurants, diningWantToGo, diningReminder)
+      }
+    } catch (e) {
+      setDiningError(e.message || 'Could not generate dining list.')
+    } finally {
+      setDiningGenerating(false)
+    }
+  }
+
+  async function handleDiningToggleWant(restaurantId, want) {
+    const next = new Set(diningWantToGo)
+    if (want) next.add(restaurantId)
+    else next.delete(restaurantId)
+    const list = [...next]
+    setDiningWantToGo(list)
+    if (!user?.token) {
+      persistGuestDining(diningRestaurants, list, diningReminder)
+      return
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/dining`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ want_to_go: list }),
+      })
+      if (res.status === 401) handleLogout()
+      else if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        setDiningError(
+          typeof errJson.detail === 'string'
+            ? errJson.detail
+            : 'Could not save'
+        )
+      }
+    } catch (e) {
+      setDiningError(e.message || 'Could not save.')
+    }
+  }
+
+  async function handleDiningToggleReminder(enabled) {
+    setDiningReminder(enabled)
+    if (!user?.token) {
+      persistGuestDining(diningRestaurants, diningWantToGo, enabled)
+      return
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/dining`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ reminder_enabled: enabled }),
+      })
+      if (res.status === 401) handleLogout()
+      else if (!res.ok) {
+        setDiningReminder(!enabled)
+        const errJson = await res.json().catch(() => ({}))
+        setDiningError(
+          typeof errJson.detail === 'string'
+            ? errJson.detail
+            : 'Could not save reminder'
+        )
+      }
+    } catch (e) {
+      setDiningReminder(!enabled)
+      setDiningError(e.message || 'Could not save reminder.')
+    }
+  }
+
+  useEffect(() => {
+    if (user?.token) return
+    try {
+      const raw = localStorage.getItem(DINING_STORAGE_KEY)
+      if (raw) {
+        const d = JSON.parse(raw)
+        if (d.restaurants) setDiningRestaurants(d.restaurants)
+        if (Array.isArray(d.wantToGo)) setDiningWantToGo(d.wantToGo)
+        if (d.reminderEnabled != null) setDiningReminder(!!d.reminderEnabled)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [user?.token])
+
+  useEffect(() => {
+    if (location.pathname !== '/dining' || !user?.token) return
+    void loadDiningFromApi()
+  }, [location.pathname, user?.token, loadDiningFromApi])
+
   useEffect(() => {
     llAutoRequestedRef.current = false
   }, [tripInfo?.arrivalDate, tripInfo?.departureDate])
@@ -573,6 +764,16 @@ export default function App() {
       localStorage.removeItem(LL_GUIDE_STORAGE_KEY)
     } catch {}
     llAutoRequestedRef.current = false
+    setDiningRestaurants(null)
+    setDiningWantToGo([])
+    setDiningReminder(false)
+    setDiningDaysUntil(null)
+    setDiningBookingOpened(false)
+    setDiningOpensAt(null)
+    setDiningError(null)
+    try {
+      localStorage.removeItem(DINING_STORAGE_KEY)
+    } catch {}
     navigate('/itinerary')
     void requestStructuredItinerary(trip)
   }
@@ -653,6 +854,15 @@ export default function App() {
         try {
           localStorage.removeItem(LL_GUIDE_STORAGE_KEY)
         } catch {}
+        try {
+          localStorage.removeItem(DINING_STORAGE_KEY)
+        } catch {}
+        setDiningRestaurants(null)
+        setDiningWantToGo([])
+        setDiningReminder(false)
+        setDiningDaysUntil(null)
+        setDiningBookingOpened(false)
+        setDiningOpensAt(null)
         chatHistoryLoadedRef.current = false
       }
     } finally {
@@ -1331,6 +1541,14 @@ export default function App() {
                 >
                   Lightning Lane
                 </NavLink>
+                <NavLink
+                  to="/dining"
+                  className={({ isActive }) =>
+                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`
+                  }
+                >
+                  Dining
+                </NavLink>
               </div>
             ) : (
               <div className="flex shrink-0 flex-wrap items-center gap-3 md:gap-4">
@@ -1347,6 +1565,14 @@ export default function App() {
                   }
                 >
                   Lightning Lane
+                </NavLink>
+                <NavLink
+                  to="/dining"
+                  className={({ isActive }) =>
+                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`
+                  }
+                >
+                  Dining
                 </NavLink>
               </div>
             )}
@@ -1441,6 +1667,27 @@ export default function App() {
             }
           />
           <Route
+            path="/dining"
+            element={
+              <DiningPage
+                tripInfo={tripInfo}
+                user={user}
+                restaurants={diningRestaurants}
+                wantToGo={diningWantToGo}
+                reminderEnabled={diningReminder}
+                loading={diningLoading}
+                generating={diningGenerating}
+                error={diningError}
+                daysUntil={user ? diningDaysUntil : null}
+                bookingOpened={user ? diningBookingOpened : false}
+                bookingOpensAt={user ? diningOpensAt : null}
+                onGenerate={requestGenerateDining}
+                onToggleWant={handleDiningToggleWant}
+                onToggleReminder={handleDiningToggleReminder}
+              />
+            }
+          />
+          <Route
             path="/*"
             element={
               <>
@@ -1466,6 +1713,7 @@ export default function App() {
             onAskGuide={goToChat}
             onItineraryPreview={handleItineraryFromHub}
             onOpenLightningLaneGuide={() => navigate('/lightning-lane-guide')}
+            onOpenDining={() => navigate('/dining')}
             onPlanTrip={() => setShowTripForm(true)}
             onEditTrip={() => setShowTripForm(true)}
           />

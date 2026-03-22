@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
@@ -24,6 +25,7 @@ from starlette.responses import JSONResponse
 
 import auth
 import env  # noqa: F401  # load .env before database/auth read os.environ
+import dining_recommendations as dining_rec
 import itinerary_export
 import lightning_lane_guide as ll_guide
 import store
@@ -221,6 +223,15 @@ class LightningLaneGuideRequest(BaseModel):
     """Onboarding trip profile for structured Lightning Lane guide JSON."""
 
     trip_info: TripInfo
+
+
+class DiningGenerateRequest(BaseModel):
+    trip_info: TripInfo
+
+
+class DiningPatchRequest(BaseModel):
+    want_to_go: Optional[list[str]] = None
+    reminder_enabled: Optional[bool] = None
 
 
 def _sse_data(obj: dict) -> str:
@@ -509,6 +520,102 @@ async def generate_lightning_lane_guide_endpoint(
         await store.set_lightning_lane_guide(session, user_id, guide)
 
     return {"guide": guide}
+
+
+@app.post("/api/dining/generate")
+@limiter.limit("20/hour")
+async def dining_generate(
+    request: Request,
+    body: DiningGenerateRequest,
+    session: AsyncSession = Depends(get_session),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    """Top 10 first-timer-friendly WDW restaurants; optional persist when signed in."""
+    user_id = get_current_user_id(authorization)
+    trip_dict = body.trip_info.model_dump()
+    try:
+        data = await asyncio.to_thread(
+            dining_rec.generate_top_restaurants,
+            trip_dict,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not parse dining JSON: {e!s}",
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not generate dining list: {e!s}",
+        ) from e
+
+    if user_id is not None:
+        await store.save_trip(session, user_id, trip_dict)
+        await store.set_dining_restaurants(session, user_id, data)
+
+    return {"restaurants": data.get("restaurants", [])}
+
+
+@app.get("/api/dining")
+async def get_dining_state(
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Restaurants cache, want-to-go, reminder, and 60-day booking countdown."""
+    bundle = await store.get_trip_bundle(session, user_id)
+    if bundle is None:
+        return {
+            "restaurants": None,
+            "want_to_go": [],
+            "reminder_enabled": False,
+            "booking_window_opens_at": None,
+            "days_until_booking_window": None,
+            "booking_window_opened": False,
+            "has_saved_trip": False,
+        }
+    trip = bundle.get("trip") or {}
+    arrival = trip.get("arrival_date")
+    opens = dining_rec.booking_window_opens_at_utc(arrival)
+    now = datetime.now(timezone.utc)
+    days = dining_rec.days_until_booking_window(now, opens)
+    opened = dining_rec.booking_window_opened(now, opens)
+    dr = bundle.get("dining_restaurants")
+    if isinstance(dr, dict):
+        rest_list = dr.get("restaurants")
+    else:
+        rest_list = None
+    return {
+        "restaurants": rest_list,
+        "want_to_go": bundle.get("dining_want_to_go") or [],
+        "reminder_enabled": bundle.get("dining_reminder_enabled", False),
+        "booking_window_opens_at": opens.isoformat() if opens else None,
+        "days_until_booking_window": days,
+        "booking_window_opened": opened,
+        "has_saved_trip": True,
+    }
+
+
+@app.patch("/api/dining")
+async def patch_dining_preferences(
+    body: DiningPatchRequest,
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Persist want-to-go list and/or 60-day window reminder flag."""
+    if body.want_to_go is None and body.reminder_enabled is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide want_to_go and/or reminder_enabled",
+        )
+    await store.update_dining_preferences(
+        session,
+        user_id,
+        want_to_go=body.want_to_go,
+        reminder_enabled=body.reminder_enabled,
+    )
+    return {"ok": True}
 
 
 @app.get("/messages")
