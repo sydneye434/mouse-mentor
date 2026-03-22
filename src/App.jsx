@@ -17,6 +17,8 @@ import TripSummary from './components/TripSummary.jsx'
 import AuthModal from './components/AuthModal.jsx'
 import PaywallModal from './components/PaywallModal.jsx'
 import { toTripInfoPayload } from './tripInfo.js'
+import { tripFromApi } from './tripFromApi.js'
+import SharedTripPage from './components/SharedTripPage.jsx'
 import './App.css'
 
 const API_BASE =
@@ -88,55 +90,6 @@ function getInitialAppScreen() {
     if (s === 'hub' || s === 'chat') return s
   } catch {}
   return 'hub'
-}
-
-/** Map backend snake_case trip to frontend camelCase */
-function tripFromApi(data) {
-  if (!data) return null
-  const pa = data.party_age_adult
-  const pt = data.party_age_teen
-  const c712 = data.party_age_7_12
-  const u7 = data.party_age_under_7
-  const derivedAdults =
-    pa != null || pt != null
-      ? (pa ?? 0) + (pt ?? 0)
-      : data.number_of_adults ?? 1
-  const derivedChildren =
-    u7 != null || c712 != null
-      ? (u7 ?? 0) + (c712 ?? 0)
-      : data.number_of_children ?? 0
-  return {
-    destination: data.destination,
-    arrivalDate: data.arrival_date ?? '',
-    departureDate: data.departure_date ?? '',
-    numberOfAdults: Math.max(1, derivedAdults),
-    numberOfChildren: derivedChildren,
-    childAges: data.child_ages ?? [],
-    datesFlexible: data.dates_flexible ?? false,
-    flexibleTravelPeriod: data.flexible_travel_period ?? '',
-    parkDays: data.park_days ?? '',
-    onSite: data.on_site ?? null,
-    resortTier: data.resort_tier ?? '',
-    firstVisit: data.first_visit ?? null,
-    specialOccasion: data.special_occasion ?? '',
-    priorities: data.priorities ?? [],
-    tripPace: data.trip_pace ?? '',
-    budgetVibe: data.budget_vibe ?? '',
-    ridePreference: data.ride_preference ?? '',
-    geniePlusInterest: data.genie_plus_interest ?? '',
-    dietaryNotes: data.dietary_notes ?? '',
-    lengthOfStayDays: data.length_of_stay_days,
-    parksPlanned: data.parks_planned ?? [],
-    parkScheduleNotes: data.park_schedule_notes ?? '',
-    partyAgeUnder7: data.party_age_under_7 ?? 0,
-    partyAge7To12: data.party_age_7_12 ?? 0,
-    partyAgeTeen: data.party_age_teen ?? 0,
-    partyAgeAdult: data.party_age_adult ?? 1,
-    thrillTolerance: data.thrill_tolerance ?? 'some_thrills',
-    mobilityNotes: data.mobility_notes ?? '',
-    dietaryRestrictions: data.dietary_restrictions ?? '',
-    firstTimerFocus: data.first_timer_focus ?? 'rides',
-  }
 }
 
 export default function App() {
@@ -829,6 +782,40 @@ export default function App() {
       setExportError(e.message || 'Could not export PDF.')
     } finally {
       setItineraryExporting(false)
+    }
+  }
+
+  async function handleShareTrip() {
+    if (!user?.token) {
+      setShowAuthModal(true)
+      throw new Error('Sign in to share your trip.')
+    }
+    const res = await fetch(`${API_BASE}/trip/share`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${user.token}` },
+    })
+    if (res.status === 401) {
+      handleLogout()
+      throw new Error('Session expired. Sign in again.')
+    }
+    if (res.status === 404) {
+      throw new Error('Save your trip on your account first to get a share link.')
+    }
+    if (!res.ok) {
+      throw new Error('Could not create a share link.')
+    }
+    const data = await res.json()
+    const token = data.share_token
+    if (!token || typeof token !== 'string') {
+      throw new Error('Invalid response from server.')
+    }
+    const url = `${window.location.origin}/trip/${token}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      throw new Error(
+        `Could not copy automatically. Share this link: ${url}`
+      )
     }
   }
 
@@ -1633,6 +1620,7 @@ export default function App() {
 
       <main id="chat-main" className="chat-main">
         <Routes>
+          <Route path="/trip/:shareId" element={<SharedTripPage />} />
           <Route
             path="/itinerary"
             element={
@@ -1706,6 +1694,7 @@ export default function App() {
           <DashboardHome
             tripInfo={tripInfo}
             user={user}
+            saveTripData={saveTripData}
             waitTimesData={waitTimesData}
             waitTimesLoading={waitTimesLoading}
             waitTimesError={waitTimesError}
@@ -1716,6 +1705,7 @@ export default function App() {
             onOpenDining={() => navigate('/dining')}
             onPlanTrip={() => setShowTripForm(true)}
             onEditTrip={() => setShowTripForm(true)}
+            onShareTrip={handleShareTrip}
           />
         )}
 

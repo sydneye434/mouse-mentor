@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Zap,
   UtensilsCrossed,
+  Share2,
 } from 'lucide-react'
 import { DESTINATIONS } from '../tripInfo'
 
@@ -47,6 +48,7 @@ function daysUntilArrival(arrivalDate) {
 export default function DashboardHome({
   tripInfo,
   user,
+  saveTripData,
   waitTimesData,
   waitTimesLoading,
   waitTimesError,
@@ -57,8 +59,10 @@ export default function DashboardHome({
   onOpenDining,
   onPlanTrip,
   onEditTrip,
+  onShareTrip,
 }) {
   const [tipIndex, setTipIndex] = useState(0)
+  const [shareStatus, setShareStatus] = useState('idle')
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -73,6 +77,21 @@ export default function DashboardHome({
 
   const days = tripInfo?.arrivalDate ? daysUntilArrival(tripInfo.arrivalDate) : null
   const hasDates = !!(tripInfo?.arrivalDate && tripInfo?.departureDate)
+  const canShare =
+    !!user?.token && saveTripData && tripInfo && hasDates && typeof onShareTrip === 'function'
+
+  async function handleShareClick() {
+    if (!onShareTrip) return
+    setShareStatus('copying')
+    try {
+      await onShareTrip()
+      setShareStatus('copied')
+      setTimeout(() => setShareStatus('idle'), 2800)
+    } catch {
+      setShareStatus('error')
+      setTimeout(() => setShareStatus('idle'), 5000)
+    }
+  }
 
   const shortest =
     waitTimesData?.top10_shortest?.slice(0, 5) ?? []
@@ -158,6 +177,29 @@ export default function DashboardHome({
                   ? ` · ${tripInfo.lengthOfStayDays} days`
                   : ''}
               </p>
+            )}
+            {canShare && (
+              <div className="mt-4 w-full border-t border-[var(--color-border)] pt-4">
+                <button
+                  type="button"
+                  onClick={() => void handleShareClick()}
+                  disabled={shareStatus === 'copying'}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-bg-page)] px-4 py-2.5 text-sm font-semibold text-[var(--color-text-heading)] shadow-sm hover:bg-[var(--color-lilac-light)] disabled:opacity-60 sm:w-auto"
+                >
+                  <Share2 className="h-4 w-4 shrink-0" aria-hidden />
+                  {shareStatus === 'copying'
+                    ? 'Copying link…'
+                    : shareStatus === 'copied'
+                      ? 'Copied to clipboard!'
+                      : shareStatus === 'error'
+                        ? 'Could not copy — try again'
+                        : 'Share my trip'}
+                </button>
+                <p className="mt-2 m-0 text-xs text-[var(--color-text-muted)]">
+                  Anyone with the link can view your trip details and itinerary
+                  (read-only, no sign-in).
+                </p>
+              </div>
             )}
           </div>
         )}

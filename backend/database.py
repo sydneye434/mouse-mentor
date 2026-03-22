@@ -184,6 +184,35 @@ def _migrate_saved_trips_dining(connection) -> None:
             )
 
 
+def _migrate_saved_trips_share_token(connection) -> None:
+    """Opaque share_token for public read-only /trip/{token} URLs."""
+    insp = inspect(connection)
+    try:
+        cols = [c["name"] for c in insp.get_columns("saved_trips")]
+    except Exception:
+        return
+    if "share_token" in cols:
+        return
+    dialect = connection.dialect.name
+    if dialect == "sqlite":
+        connection.execute(
+            text("ALTER TABLE saved_trips ADD COLUMN share_token VARCHAR(64)")
+        )
+    else:
+        connection.execute(
+            text(
+                "ALTER TABLE saved_trips ADD COLUMN IF NOT EXISTS share_token VARCHAR(64)"
+            )
+        )
+    # Partial unique: multiple NULLs allowed; non-null tokens must be unique
+    connection.execute(
+        text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_saved_trips_share_token_unique "
+            "ON saved_trips (share_token) WHERE share_token IS NOT NULL"
+        )
+    )
+
+
 async def init_db() -> None:
     """Create tables if they do not exist; migrate legacy schemas."""
     async with engine.begin() as conn:
@@ -192,3 +221,4 @@ async def init_db() -> None:
         await conn.run_sync(_migrate_saved_trips_generated_itinerary)
         await conn.run_sync(_migrate_saved_trips_lightning_lane_guide)
         await conn.run_sync(_migrate_saved_trips_dining)
+        await conn.run_sync(_migrate_saved_trips_share_token)

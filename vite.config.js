@@ -12,7 +12,22 @@ export default defineConfig({
     proxy: {
       '/auth': { target: 'http://localhost:8000', changeOrigin: true },
       '/chat': { target: 'http://localhost:8000', changeOrigin: true },
-      '/trip': { target: 'http://localhost:8000', changeOrigin: true },
+      // Proxy GET/DELETE /trip and POST /trip/share only — not /trip/:token (SPA shared view)
+      '/trip': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        bypass(req) {
+          const path = req.url?.split('?')[0] ?? ''
+          if (path === '/trip' || path === '/trip/share') {
+            return undefined
+          }
+          if (path.startsWith('/trip/')) {
+            return false
+          }
+          return undefined
+        },
+      },
+      '/public': { target: 'http://localhost:8000', changeOrigin: true },
       '/health': { target: 'http://localhost:8000', changeOrigin: true },
       '/wait-times': { target: 'http://localhost:8000', changeOrigin: true },
       '/export': { target: 'http://localhost:8000', changeOrigin: true },

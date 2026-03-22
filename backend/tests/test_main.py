@@ -442,6 +442,52 @@ def test_delete_trip_requires_valid_token():
     assert response.status_code == 401
 
 
+def test_trip_share_requires_auth():
+    response = client.post("/trip/share")
+    assert response.status_code == 401
+
+
+def test_public_trip_not_found():
+    response = client.get("/public/trip/doesnotexist")
+    assert response.status_code == 404
+
+
+def test_share_and_public_trip_roundtrip():
+    token = get_auth_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    trip = {
+        "destination": "disney-world",
+        "number_of_adults": 2,
+    }
+
+    async def _saved_stream(*args, **kwargs):
+        yield "Saved!"
+
+    with patch("main.ai_stream_reply", side_effect=_saved_stream):
+        client.post(
+            "/chat",
+            json={
+                "messages": [{"role": "user", "text": "Hi"}],
+                "trip_info": trip,
+                "save_trip": True,
+            },
+            headers=headers,
+        )
+    share = client.post("/trip/share", headers=headers)
+    assert share.status_code == 200
+    assert "share_token" in share.json()
+    share_token = share.json()["share_token"]
+    assert len(share_token) >= 8
+
+    public = client.get(f"/public/trip/{share_token}")
+    assert public.status_code == 200
+    assert public.json()["trip"]["destination"] == "disney-world"
+
+    second = client.post("/trip/share", headers=headers)
+    assert second.status_code == 200
+    assert second.json()["share_token"] == share_token
+
+
 @patch(
     "main.itinerary_export.generate_structured_itinerary_from_trip",
     return_value={

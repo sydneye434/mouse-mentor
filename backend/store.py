@@ -5,6 +5,7 @@ Developed by Sydney Edwards.
 
 from __future__ import annotations
 
+import secrets
 from typing import Any, Optional
 
 from sqlalchemy import delete, select
@@ -114,6 +115,51 @@ async def update_dining_preferences(
     if reminder_enabled is not None:
         row.dining_reminder_enabled = reminder_enabled
     await session.flush()
+
+
+def _new_share_token() -> str:
+    """URL-safe opaque token (hex, no special chars)."""
+    return secrets.token_hex(9)
+
+
+async def ensure_share_token(session: AsyncSession, user_id: int) -> str:
+    """Create or return existing share_token for the user's saved trip."""
+    result = await session.execute(
+        select(SavedTrip).where(SavedTrip.user_id == user_id)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise ValueError("No saved trip for user")
+    if row.share_token:
+        return row.share_token
+    for _ in range(24):
+        token = _new_share_token()
+        clash = await session.execute(
+            select(SavedTrip).where(SavedTrip.share_token == token)
+        )
+        if clash.scalar_one_or_none() is None:
+            row.share_token = token
+            await session.flush()
+            return token
+    raise RuntimeError("Could not allocate share token")
+
+
+async def get_trip_by_share_token(
+    session: AsyncSession, token: str
+) -> Optional[dict[str, Any]]:
+    """Public read: trip + structured itinerary by share token (no auth)."""
+    if not token or len(token) > 64:
+        return None
+    result = await session.execute(
+        select(SavedTrip).where(SavedTrip.share_token == token)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        return None
+    return {
+        "trip": dict(row.trip_data),
+        "generated_itinerary": row.generated_itinerary,
+    }
 
 
 async def delete_trip(session: AsyncSession, user_id: int) -> None:

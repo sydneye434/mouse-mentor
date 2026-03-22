@@ -44,7 +44,11 @@ function parkLabels(parks, destination) {
   return (parks || []).map((p) => map[p] ?? p).join(', ')
 }
 
-export default function TripSummary({ trip, onEdit }) {
+export default function TripSummary({
+  trip,
+  onEdit,
+  summaryTitle = 'Your trip',
+}) {
   const dest =
     DESTINATIONS.find((d) => d.value === trip.destination)?.label ??
     trip.destination
@@ -139,7 +143,7 @@ export default function TripSummary({ trip, onEdit }) {
   return (
     <div className="mb-4 rounded-[var(--radius-input)] border border-[var(--color-border)] border-l-4 border-l-[var(--color-lilac-strong)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm">
       <p className="m-0 mb-1 font-semibold text-[var(--color-text-heading)]">
-        Your trip
+        {summaryTitle}
       </p>
       <p className="m-0 leading-relaxed text-[var(--color-text-muted)]">
         {parts.join(' • ')}

@@ -56,45 +56,51 @@ export default function ItineraryPage({
   exporting,
   onExportPdf,
   onUnlockPro,
+  readOnly = false,
+  hideBackLink = false,
 }) {
-  const isPro = !!user?.is_pro
+  /** Shared / public view shows full timeline without Pro gate */
+  const isPro = readOnly || !!user?.is_pro
   const days = itinerary?.days ?? []
   const summary = itinerary?.summary ?? ''
 
   return (
     <div className="relative mx-auto w-full max-w-2xl flex-1 px-4 pb-12 pt-4">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-lilac-strong)] hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          Back to hub
-        </Link>
-        {isPro && days.length > 0 && (
-          <button
-            type="button"
-            onClick={onExportPdf}
-            disabled={exporting}
-            className="inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2 text-sm font-semibold text-[var(--color-text-heading)] shadow-sm hover:bg-[var(--color-lilac-light)] disabled:opacity-50"
+      {(!readOnly || !hideBackLink) && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-lilac-strong)] hover:underline"
           >
-            {exporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <FileDown className="h-4 w-4" aria-hidden />
-            )}
-            Export PDF
-          </button>
-        )}
-      </div>
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            {readOnly ? 'Plan your trip' : 'Back to hub'}
+          </Link>
+          {!readOnly && isPro && days.length > 0 && (
+            <button
+              type="button"
+              onClick={onExportPdf}
+              disabled={exporting}
+              className="inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-2 text-sm font-semibold text-[var(--color-text-heading)] shadow-sm hover:bg-[var(--color-lilac-light)] disabled:opacity-50"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <FileDown className="h-4 w-4" aria-hidden />
+              )}
+              Export PDF
+            </button>
+          )}
+        </div>
+      )}
 
       <header className="mb-8">
         <h1 className="font-display text-3xl font-bold text-[var(--color-text-heading)]">
-          Your itinerary
+          {readOnly ? 'Trip itinerary' : 'Your itinerary'}
         </h1>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Day-by-day plan built from your trip details—rides, waits, and walking
-          tips in a simple timeline.
+          {readOnly
+            ? 'Read-only view—shared by the trip owner. No sign-in required.'
+            : 'Day-by-day plan built from your trip details—rides, waits, and walking tips in a simple timeline.'}
         </p>
         {tripInfo?.arrivalDate && tripInfo?.departureDate && (
           <p className="mt-2 text-xs text-[var(--color-text-muted)]">
@@ -211,7 +217,7 @@ export default function ItineraryPage({
             ))}
           </ol>
 
-          {!isPro && (
+          {!readOnly && !isPro && (
             <div
               className="pointer-events-auto absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-[var(--radius-card)] bg-[var(--color-bg-surface)]/75 px-6 py-12 backdrop-blur-sm"
               role="dialog"

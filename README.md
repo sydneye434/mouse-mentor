@@ -111,7 +111,8 @@ Create `.env` in the project root:
 VITE_API_URL=http://localhost:8000
 ```
 
-If unset in dev, the app uses relative URLs and Vite proxies `/auth`, `/chat`, `/trip`, `/health`, etc. to `http://localhost:8000`.
+If unset in dev, the app uses relative URLs and Vite proxies `/auth`, `/chat`, `/health`, `/public`, etc. to `http://localhost:8000`.  
+**Note:** `GET/DELETE /trip` and `POST /trip/share` are proxied to the API; paths like `/trip/<share-token>` are **not** proxied so the SPA can render the public shared trip page.
 
 | What               | URL                     |
 | ------------------ | ----------------------- |
@@ -167,6 +168,8 @@ Optional: `GROQ_MODEL`, `GEMINI_MODEL`. Restart the backend after changes.
 - **POST** `/auth/login` — same body → JWT  
 - **GET** `/trip` — saved trip (Bearer token required)  
 - **DELETE** `/trip` — delete saved trip + messages (Bearer)  
+- **POST** `/trip/share` — returns `{ "share_token" }` for a read-only link (Bearer; saved trip required)  
+- **GET** `/public/trip/{share_token}` — trip JSON + `generated_itinerary` (no auth; 404 if invalid)  
 - **POST** `/chat` — messages + optional `trip_info`, `save_trip`; streams SSE tokens  
 
 `save_trip: true` requires a valid Bearer token. Rate limits apply to `/chat` (see `backend/.env.example` / `RATELIMIT_ENABLED`).

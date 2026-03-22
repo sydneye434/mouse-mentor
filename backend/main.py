@@ -669,6 +669,34 @@ async def delete_saved_trip(
     return {"deleted": True}
 
 
+@app.post("/trip/share")
+async def create_or_get_share_token(
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Return an opaque token for read-only /trip/{token} (creates once per saved trip)."""
+    try:
+        token = await store.ensure_share_token(session, user_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="No saved trip found")
+    return {"share_token": token}
+
+
+@app.get("/public/trip/{share_token}")
+async def get_public_trip(
+    share_token: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """Read-only trip + itinerary for share link (no authentication)."""
+    bundle = await store.get_trip_by_share_token(session, share_token)
+    if bundle is None:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return {
+        "trip": bundle["trip"],
+        "generated_itinerary": bundle.get("generated_itinerary"),
+    }
+
+
 def _days_between(start: Optional[str], end: Optional[str]) -> Optional[int]:
     if not start or not end:
         return None

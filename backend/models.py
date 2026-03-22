@@ -50,6 +50,10 @@ class SavedTrip(Base):
     generated_itinerary: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JSON, nullable=True
     )
+    # Opaque token for read-only public URL /trip/{share_token}
+    share_token: Mapped[Optional[str]] = mapped_column(
+        String(64), unique=True, nullable=True, index=True
+    )
     lightning_lane_guide: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JSON, nullable=True
     )
