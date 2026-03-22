@@ -6,6 +6,16 @@ Developed by Sydney Edwards.
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
+
+from main import app
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _run_app_lifespan():
+    """Trigger FastAPI lifespan so init_db() creates tables (SQLite/Postgres)."""
+    with TestClient(app):
+        yield
 
 
 @pytest.fixture(autouse=True)

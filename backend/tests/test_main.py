@@ -3,6 +3,7 @@ API tests: health, chat, auth (register/login), and protected trip endpoints.
 Developed by Sydney Edwards.
 """
 
+import json
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -11,6 +12,35 @@ import auth
 from main import app
 
 client = TestClient(app)
+
+
+def _sse_collect_text(body: str) -> str:
+    """Concatenate token payloads from an SSE /chat response body."""
+    parts = []
+    for line in body.splitlines():
+        line = line.strip()
+        if not line.startswith("data: "):
+            continue
+        try:
+            obj = json.loads(line[6:])
+        except json.JSONDecodeError:
+            continue
+        if obj.get("type") == "token":
+            parts.append(obj.get("text", ""))
+    return "".join(parts)
+
+
+def _sse_has_done(body: str) -> bool:
+    for line in body.splitlines():
+        line = line.strip()
+        if line.startswith("data: "):
+            try:
+                obj = json.loads(line[6:])
+                if obj.get("type") == "done":
+                    return True
+            except json.JSONDecodeError:
+                continue
+    return False
 
 
 def test_health():
@@ -33,17 +63,19 @@ def test_wait_times_endpoint():
 def test_chat_empty_messages():
     response = client.post("/chat", json={"messages": []})
     assert response.status_code == 200
-    data = response.json()
-    assert "reply" in data
-    reply = data["reply"].lower()
+    assert response.headers.get("content-type", "").startswith("text/event-stream")
+    body = response.text
+    reply = _sse_collect_text(body).lower()
     assert "disney" in reply or "trip" in reply or "parks" in reply
+    assert _sse_has_done(body)
 
 
-@patch("main.ai_generate_reply")
-def test_chat_with_message(mock_generate_reply):
-    mock_generate_reply.return_value = (
-        "Best time to visit is typically off-peak. Ask me about crowds and events!"
-    )
+async def _fake_stream_short(*args, **kwargs):
+    yield "Best time to visit is typically off-peak. Ask me about crowds and events!"
+
+
+@patch("main.ai_stream_reply", side_effect=_fake_stream_short)
+def test_chat_with_message(mock_stream):
     response = client.post(
         "/chat",
         json={
@@ -51,18 +83,22 @@ def test_chat_with_message(mock_generate_reply):
         },
     )
     assert response.status_code == 200
-    data = response.json()
-    assert "reply" in data
-    assert "Best" in data["reply"] or "visit" in data["reply"].lower()
-    mock_generate_reply.assert_called_once()
+    assert response.headers.get("content-type", "").startswith("text/event-stream")
+    text = _sse_collect_text(response.text)
+    assert "Best" in text or "visit" in text.lower()
+    assert _sse_has_done(response.text)
+    mock_stream.assert_called_once()
 
 
-@patch("main.ai_generate_reply")
-def test_chat_with_trip_info(mock_generate_reply):
-    mock_generate_reply.return_value = (
+async def _fake_stream_trip(*args, **kwargs):
+    yield (
         "For Walt Disney World with 2 adults and 1 child over 5 days, "
         "I'd suggest Magic Kingdom, Epcot, and Hollywood Studios. Book park reservations early!"
     )
+
+
+@patch("main.ai_stream_reply", side_effect=_fake_stream_trip)
+def test_chat_with_trip_info(mock_stream):
     response = client.post(
         "/chat",
         json={
@@ -78,11 +114,11 @@ def test_chat_with_trip_info(mock_generate_reply):
         },
     )
     assert response.status_code == 200
-    data = response.json()
-    assert "reply" in data
-    assert "Walt Disney World" in data["reply"] or "disney-world" in data["reply"]
-    assert "2" in data["reply"] or "3" in data["reply"]  # party size
-    mock_generate_reply.assert_called_once()
+    text = _sse_collect_text(response.text)
+    assert "Walt Disney World" in text or "disney-world" in text
+    assert "2" in text or "3" in text  # party size
+    assert _sse_has_done(response.text)
+    mock_stream.assert_called_once()
 
 
 def test_chat_invalid_body_rejected():
@@ -137,7 +173,11 @@ def test_get_trip_after_save():
         "destination": "disney-world",
         "number_of_adults": 2,
     }
-    with patch("main.ai_generate_reply", return_value="Saved!"):
+
+    async def _saved_stream(*args, **kwargs):
+        yield "Saved!"
+
+    with patch("main.ai_stream_reply", side_effect=_saved_stream):
         client.post(
             "/chat",
             json={
@@ -158,7 +198,11 @@ def test_get_trip_after_save():
 def test_delete_trip():
     token = get_auth_token()
     headers = {"Authorization": f"Bearer {token}"}
-    with patch("main.ai_generate_reply", return_value="Hi!"):
+
+    async def _hi_stream(*args, **kwargs):
+        yield "Hi!"
+
+    with patch("main.ai_stream_reply", side_effect=_hi_stream):
         client.post(
             "/chat",
             json={

@@ -1,11 +1,13 @@
 """
 Mouse Mentor AI: uses trip info + web search to answer Disney trip questions.
-Supports Groq (default, free) and Google Gemini. Developed by Sydney Edwards.
+Supports Groq (default, free) and Google Gemini with streaming. Developed by Sydney Edwards.
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
+from collections.abc import AsyncIterator
 from typing import Any, Optional
 
 from dotenv import load_dotenv
@@ -103,76 +105,13 @@ def _web_search(query: str, max_results: int = 5) -> str:
         return ""
 
 
-def _call_groq(system_content: str, openai_messages: list[dict[str, str]]) -> str:
-    """Call Groq via OpenAI-compatible API."""
-    from openai import OpenAI
-
-    client = OpenAI(
-        base_url="https://api.groq.com/openai/v1",
-        api_key=GROQ_API_KEY,
-    )
-    resp = client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[{"role": "system", "content": system_content}] + openai_messages,
-        max_tokens=1024,
-        temperature=0.7,
-    )
-    return (resp.choices[0].message.content or "").strip()
-
-
-def _call_gemini(system_content: str, openai_messages: list[dict[str, str]]) -> str:
-    """Call Google Gemini with system instruction and chat history."""
-    from google import genai
-    from google.genai.types import Content, GenerateContentConfig, Part
-
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    contents = []
-    for m in openai_messages:
-        role = m.get("role")
-        text = m.get("content", "")
-        if not text:
-            continue
-        if role == "user":
-            contents.append(Content(role="user", parts=[Part(text=text)]))
-        elif role == "assistant":
-            contents.append(Content(role="model", parts=[Part(text=text)]))
-    resp = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=contents,
-        config=GenerateContentConfig(
-            system_instruction=system_content,
-            max_output_tokens=1024,
-            temperature=0.7,
-        ),
-    )
-    if resp.text:
-        return resp.text.strip()
-    return ""
-
-
-def generate_reply(
+def _build_system_and_messages(
     messages: list[dict[str, str]],
-    trip_info: Optional[dict[str, Any]] = None,
-    use_web_search: bool = True,
-    wait_times_context: Optional[str] = None,
-) -> str:
-    """
-    Generate an assistant reply using trip context and optional web search.
-    messages: list of {"role": "user"|"assistant", "text": "..."}
-    trip_info: optional trip dict from frontend (snake_case keys).
-    Uses AI_PROVIDER (groq or gemini); Groq is default and free.
-    """
-    if AI_PROVIDER == "groq" and not GROQ_API_KEY:
-        return (
-            "I can't answer yet — set GROQ_API_KEY in the backend (free at console.groq.com). "
-            "Restart the server after adding it."
-        )
-    if AI_PROVIDER == "gemini" and not GEMINI_API_KEY:
-        return (
-            "I can't answer yet — set GEMINI_API_KEY in the backend (free at aistudio.google.com). "
-            "Restart the server after adding it."
-        )
-
+    trip_info: Optional[dict[str, Any]],
+    use_web_search: bool,
+    wait_times_context: Optional[str],
+) -> tuple[str, list[dict[str, str]]]:
+    """System prompt + OpenAI-format chat messages."""
     trip_ctx = _trip_context(trip_info)
     last_user = next(
         (m["text"] for m in reversed(messages) if m.get("role") == "user"), ""
@@ -219,11 +158,144 @@ def generate_reply(
         if role in ("user", "assistant") and text:
             openai_messages.append({"role": role, "content": text})
 
+    return system_content, openai_messages
+
+
+async def _stream_groq(
+    system_content: str, openai_messages: list[dict[str, str]]
+) -> AsyncIterator[str]:
+    from openai import AsyncOpenAI
+
+    client = AsyncOpenAI(
+        base_url="https://api.groq.com/openai/v1",
+        api_key=GROQ_API_KEY,
+    )
+    stream = await client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[{"role": "system", "content": system_content}] + openai_messages,
+        max_tokens=1024,
+        temperature=0.7,
+        stream=True,
+    )
+    async for chunk in stream:
+        if not chunk.choices:
+            continue
+        choice = chunk.choices[0]
+        delta = choice.delta
+        if delta and delta.content:
+            yield delta.content
+
+
+async def _stream_gemini(
+    system_content: str, openai_messages: list[dict[str, str]]
+) -> AsyncIterator[str]:
+    from google import genai
+    from google.genai.types import Content, GenerateContentConfig, Part
+
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    contents = []
+    for m in openai_messages:
+        role = m.get("role")
+        text = m.get("content", "")
+        if not text:
+            continue
+        if role == "user":
+            contents.append(Content(role="user", parts=[Part(text=text)]))
+        elif role == "assistant":
+            contents.append(Content(role="model", parts=[Part(text=text)]))
+
+    def sync_chunks():
+        stream = client.models.generate_content_stream(
+            model=GEMINI_MODEL,
+            contents=contents,
+            config=GenerateContentConfig(
+                system_instruction=system_content,
+                max_output_tokens=1024,
+                temperature=0.7,
+            ),
+        )
+        cumulative = ""
+        for chunk in stream:
+            t = getattr(chunk, "text", None) or ""
+            if not t:
+                continue
+            if cumulative and t.startswith(cumulative):
+                piece = t[len(cumulative) :]
+                cumulative = t
+                if piece:
+                    yield piece
+            elif not cumulative:
+                cumulative = t
+                yield t
+            else:
+                cumulative = cumulative + t
+                yield t
+
+    iterator = sync_chunks()
+    while True:
+        try:
+            piece = await asyncio.to_thread(next, iterator)
+            yield piece
+        except StopIteration:
+            break
+
+
+async def stream_reply(
+    messages: list[dict[str, str]],
+    trip_info: Optional[dict[str, Any]] = None,
+    use_web_search: bool = True,
+    wait_times_context: Optional[str] = None,
+) -> AsyncIterator[str]:
+    """
+    Stream assistant reply as text chunks (tokens / fragments).
+    messages: list of {"role": "user"|"assistant", "text": "..."}
+    """
+    if AI_PROVIDER == "groq" and not GROQ_API_KEY:
+        yield (
+            "I can't answer yet — set GROQ_API_KEY in the backend (free at console.groq.com). "
+            "Restart the server after adding it."
+        )
+        return
+    if AI_PROVIDER == "gemini" and not GEMINI_API_KEY:
+        yield (
+            "I can't answer yet — set GEMINI_API_KEY in the backend (free at aistudio.google.com). "
+            "Restart the server after adding it."
+        )
+        return
+
+    system_content, openai_messages = _build_system_and_messages(
+        messages, trip_info, use_web_search, wait_times_context
+    )
+
     try:
         if AI_PROVIDER == "groq":
-            return _call_groq(system_content, openai_messages)
-        return _call_gemini(system_content, openai_messages)
+            async for chunk in _stream_groq(system_content, openai_messages):
+                yield chunk
+        else:
+            async for chunk in _stream_gemini(system_content, openai_messages):
+                yield chunk
     except Exception as e:
-        return (
+        yield (
             f"I ran into an issue: {e!s}. Please try again or rephrase your question."
         )
+
+
+def generate_reply(
+    messages: list[dict[str, str]],
+    trip_info: Optional[dict[str, Any]] = None,
+    use_web_search: bool = True,
+    wait_times_context: Optional[str] = None,
+) -> str:
+    """
+    Non-streaming full reply (collects stream). Useful for tests or scripts.
+    """
+
+    async def _collect() -> str:
+        parts: list[str] = []
+        async for t in stream_reply(
+            messages, trip_info, use_web_search, wait_times_context
+        ):
+            parts.append(t)
+        return "".join(parts).strip()
+
+    return asyncio.run(_collect())

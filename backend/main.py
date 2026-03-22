@@ -5,12 +5,14 @@ Async FastAPI + SQLAlchemy. Developed by Sydney Edwards.
 
 from __future__ import annotations
 
+import json
 import os
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +20,7 @@ import auth
 import env  # noqa: F401  # load .env before database/auth read os.environ
 import store
 import wait_times
-from ai import generate_reply as ai_generate_reply
+from ai import stream_reply as ai_stream_reply
 from database import get_session, init_db
 
 
@@ -163,8 +165,9 @@ class ChatRequest(BaseModel):
     shortest_waits: Optional[list[ShortestWaitItem]] = None
 
 
-class ChatResponse(BaseModel):
-    reply: str
+def _sse_data(obj: dict) -> str:
+    """One Server-Sent Event data line (JSON payload)."""
+    return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n"
 
 
 @app.get("/health")
@@ -184,7 +187,7 @@ async def get_wait_times(refresh: bool = False):
         ) from e
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat")
 async def chat(
     request: ChatRequest,
     session: AsyncSession = Depends(get_session),
@@ -204,31 +207,52 @@ async def chat(
     last = request.messages[-1] if request.messages else None
     trip = request.trip_info
 
-    if last and last.text.strip():
-        messages_payload = [{"role": m.role, "text": m.text} for m in request.messages]
-        trip_dict = trip.model_dump() if trip else None
+    async def event_generator():
+        try:
+            if not last or not last.text.strip():
+                static = "Share your trip details above, then ask about parks, hotels, dining, or dates."
+                yield _sse_data({"type": "token", "text": static})
+                yield _sse_data({"type": "done"})
+                return
 
-        wait_list: list[dict] = []
-        if request.shortest_waits:
-            wait_list = [w.model_dump() for w in request.shortest_waits]
-        else:
-            try:
-                wt = await wait_times.get_wait_times_response()
-                wait_list = wt.get("top10_shortest") or []
-            except Exception:
-                wait_list = []
+            messages_payload = [
+                {"role": m.role, "text": m.text} for m in request.messages
+            ]
+            trip_dict = trip.model_dump() if trip else None
 
-        wait_ctx = wait_times.format_shortest_waits_for_ai(wait_list) or None
+            wait_list: list[dict] = []
+            if request.shortest_waits:
+                wait_list = [w.model_dump() for w in request.shortest_waits]
+            else:
+                try:
+                    wt = await wait_times.get_wait_times_response()
+                    wait_list = wt.get("top10_shortest") or []
+                except Exception:
+                    wait_list = []
 
-        reply = ai_generate_reply(
-            messages=messages_payload,
-            trip_info=trip_dict,
-            use_web_search=True,
-            wait_times_context=wait_ctx,
-        )
-    else:
-        reply = "Share your trip details above, then ask about parks, hotels, dining, or dates."
-    return ChatResponse(reply=reply)
+            wait_ctx = wait_times.format_shortest_waits_for_ai(wait_list) or None
+
+            async for token in ai_stream_reply(
+                messages=messages_payload,
+                trip_info=trip_dict,
+                use_web_search=True,
+                wait_times_context=wait_ctx,
+            ):
+                if token:
+                    yield _sse_data({"type": "token", "text": token})
+            yield _sse_data({"type": "done"})
+        except Exception as e:
+            yield _sse_data({"type": "error", "message": str(e)})
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/trip")

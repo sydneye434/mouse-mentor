@@ -44,13 +44,28 @@ describe('App', () => {
 
   it('adds user message when form is submitted', async () => {
     const user = userEvent.setup()
-    const mockReply = { reply: 'Test assistant reply' }
+    const ssePayload = [
+      { type: 'token', text: 'Test assistant reply' },
+      { type: 'done' },
+    ]
+      .map((obj) => `data: ${JSON.stringify(obj)}\n\n`)
+      .join('')
+    const encoder = new TextEncoder()
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
         Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockReply),
+          status: 200,
+          headers: new Headers({
+            'content-type': 'text/event-stream; charset=utf-8',
+          }),
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(encoder.encode(ssePayload))
+              controller.close()
+            },
+          }),
         })
       )
     )

@@ -167,34 +167,31 @@ export default function App() {
     loadSavedTrip()
   }, [loadSavedTrip])
 
-  const fetchWaitTimes = useCallback(
-    async (refresh = false) => {
-      setWaitTimesLoading(true)
-      setWaitTimesError(null)
-      try {
-        const q = refresh ? '?refresh=true' : ''
-        const res = await fetch(`${API_BASE}/wait-times${q}`)
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          const detail = err.detail
-          const msg =
-            typeof detail === 'string'
-              ? detail
-              : Array.isArray(detail)
-                ? detail.map((d) => d.msg || d).join(', ')
-                : res.statusText
-          throw new Error(msg || 'Failed to load waits')
-        }
-        const data = await res.json()
-        setWaitTimesData(data)
-      } catch (e) {
-        setWaitTimesError(e.message || 'Could not load wait times')
-      } finally {
-        setWaitTimesLoading(false)
+  const fetchWaitTimes = useCallback(async (refresh = false) => {
+    setWaitTimesLoading(true)
+    setWaitTimesError(null)
+    try {
+      const q = refresh ? '?refresh=true' : ''
+      const res = await fetch(`${API_BASE}/wait-times${q}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        const detail = err.detail
+        const msg =
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail)
+              ? detail.map((d) => d.msg || d).join(', ')
+              : res.statusText
+        throw new Error(msg || 'Failed to load waits')
       }
-    },
-    []
-  )
+      const data = await res.json()
+      setWaitTimesData(data)
+    } catch (e) {
+      setWaitTimesError(e.message || 'Could not load wait times')
+    } finally {
+      setWaitTimesLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (!showTripForm) {
@@ -230,6 +227,35 @@ export default function App() {
     }
   }
 
+  /** Parse SSE blocks: lines starting with `data: ` → JSON payloads */
+  function handleSsePayload(payload, assistantId) {
+    if (!payload || typeof payload !== 'object') return
+    if (payload.type === 'token' && payload.text) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId && m.role === 'assistant'
+            ? { ...m, text: m.text + payload.text }
+            : m
+        )
+      )
+    } else if (payload.type === 'error' && payload.message) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId && m.role === 'assistant'
+            ? {
+                ...m,
+                text:
+                  m.text +
+                  (m.text ? '\n\n' : '') +
+                  `[Error: ${payload.message}]`,
+              }
+            : m
+        )
+      )
+    }
+    // type === 'done' — stream finished normally
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!input.trim() || loading) return
@@ -240,7 +266,12 @@ export default function App() {
       role: 'user',
       text: userText,
     }
-    setMessages((prev) => [...prev, userMessage])
+    const assistantId = crypto.randomUUID()
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      { id: assistantId, role: 'assistant', text: '' },
+    ])
     setLoading(true)
     try {
       const body = {
@@ -264,31 +295,107 @@ export default function App() {
       })
       if (res.status === 401) {
         handleLogout()
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            text: 'You were signed out. Sign in again to save your trip.',
-          },
-        ])
+        setMessages((prev) =>
+          prev
+            .filter((m) => m.id !== assistantId)
+            .concat([
+              {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                text: 'You were signed out. Sign in again to save your trip.',
+              },
+            ])
+        )
         return
       }
-      if (!res.ok) throw new Error(res.statusText)
-      const data = await res.json()
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: 'assistant', text: data.reply },
-      ])
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        const detail = errJson.detail
+        const msg =
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail)
+              ? detail.map((d) => d.msg || d).join(', ')
+              : res.statusText
+        throw new Error(msg || `Request failed (${res.status})`)
+      }
+      const reader = res.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body stream')
+      }
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let streamEndedCleanly = false
+      while (true) {
+        const { done, value } = await reader.read()
+        if (value) {
+          buffer += decoder.decode(value, { stream: true })
+        }
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+        for (const block of parts) {
+          for (const line of block.split('\n')) {
+            const trimmed = line.trim()
+            if (!trimmed.startsWith('data:')) continue
+            const jsonStr = trimmed.slice(5).trim()
+            if (!jsonStr) continue
+            try {
+              const payload = JSON.parse(jsonStr)
+              if (payload.type === 'done') streamEndedCleanly = true
+              handleSsePayload(payload, assistantId)
+            } catch {
+              // ignore malformed chunk; keep streaming
+            }
+          }
+        }
+        if (done) {
+          buffer += decoder.decode()
+          if (buffer.trim()) {
+            for (const block of buffer.split('\n\n')) {
+              for (const line of block.split('\n')) {
+                const trimmed = line.trim()
+                if (!trimmed.startsWith('data:')) continue
+                const jsonStr = trimmed.slice(5).trim()
+                if (!jsonStr) continue
+                try {
+                  const payload = JSON.parse(jsonStr)
+                  if (payload.type === 'done') streamEndedCleanly = true
+                  handleSsePayload(payload, assistantId)
+                } catch {
+                  /* ignore */
+                }
+              }
+            }
+          }
+          break
+        }
+      }
+      if (!streamEndedCleanly) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId && m.role === 'assistant' && !m.text.trim()
+              ? {
+                  ...m,
+                  text: '[Connection closed before the reply finished.]',
+                }
+              : m
+          )
+        )
+      }
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          text: `Error: ${err.message}. Is the backend running?`,
-        },
-      ])
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId && m.role === 'assistant'
+            ? {
+                ...m,
+                text:
+                  m.text +
+                  (m.text ? '\n\n' : '') +
+                  `Error: ${err.message}. Is the backend running?`,
+              }
+            : m
+        )
+      )
     } finally {
       setLoading(false)
     }
@@ -718,7 +825,9 @@ export default function App() {
                     <ul className="wait-times-park__list">
                       {park.rides?.map((ride) => (
                         <li key={`${park.park_name}-${ride.name}`}>
-                          <span className="wait-times-ride__name">{ride.name}</span>
+                          <span className="wait-times-ride__name">
+                            {ride.name}
+                          </span>
                           <span className="wait-times-ride__wait">
                             {ride.wait_minutes != null
                               ? `${ride.wait_minutes} min`
