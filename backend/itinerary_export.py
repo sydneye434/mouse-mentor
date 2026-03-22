@@ -50,6 +50,30 @@ def _format_trip_header(trip: Optional[dict[str, Any]]) -> list[tuple[str, str]]
         rows.append(("Park days", str(trip["park_days"])))
     if trip.get("priorities"):
         rows.append(("Priorities", ", ".join(trip["priorities"])))
+    if trip.get("parks_planned"):
+        rows.append(("Parks planned", ", ".join(trip["parks_planned"])))
+    if trip.get("park_schedule_notes"):
+        rows.append(("Park day plan", str(trip["park_schedule_notes"])[:500]))
+    u7 = trip.get("party_age_under_7")
+    r712 = trip.get("party_age_7_12")
+    teen = trip.get("party_age_teen")
+    adult = trip.get("party_age_adult")
+    if any(x is not None for x in (u7, r712, teen, adult)):
+        rows.append(
+            (
+                "Party by age",
+                f"under 7: {u7 or 0}; 7–12: {r712 or 0}; "
+                f"teens: {teen or 0}; adults: {adult or 0}",
+            )
+        )
+    if trip.get("thrill_tolerance"):
+        rows.append(("Thrill tolerance", str(trip["thrill_tolerance"])))
+    if trip.get("first_timer_focus"):
+        rows.append(("Top priority", str(trip["first_timer_focus"])))
+    if trip.get("mobility_notes"):
+        rows.append(("Mobility", str(trip["mobility_notes"])[:300]))
+    if trip.get("dietary_restrictions"):
+        rows.append(("Dietary", str(trip["dietary_restrictions"])[:300]))
     return rows
 
 

@@ -13,7 +13,12 @@ import {
   BUDGET_VIBE_OPTIONS,
   RIDE_PREFERENCE_OPTIONS,
   GENIE_PLUS_OPTIONS,
+  WDW_PARK_OPTIONS,
+  DL_PARK_OPTIONS,
+  THRILL_TOLERANCE_OPTIONS,
+  FIRST_TIMER_FOCUS_OPTIONS,
 } from '../tripInfo'
+
 function formatDate(s) {
   if (!s) return ''
   try {
@@ -32,6 +37,13 @@ function labelFor(value, options) {
   return options.find((o) => o.value === value)?.label ?? value
 }
 
+function parkLabels(parks, destination) {
+  const opts =
+    destination === 'disneyland' ? DL_PARK_OPTIONS : WDW_PARK_OPTIONS
+  const map = Object.fromEntries(opts.map((o) => [o.value, o.label]))
+  return (parks || []).map((p) => map[p] ?? p).join(', ')
+}
+
 export default function TripSummary({ trip, onEdit }) {
   const dest =
     DESTINATIONS.find((d) => d.value === trip.destination)?.label ??
@@ -39,12 +51,46 @@ export default function TripSummary({ trip, onEdit }) {
   const party = trip.numberOfAdults + trip.numberOfChildren
   const guestLabel = party === 1 ? 'guest' : 'guests'
   const parts = [`${dest} • ${party} ${guestLabel}`]
+
+  if (trip.firstVisit === true) parts.push('first visit')
+  else if (trip.firstVisit === false) parts.push('returning')
+
+  if (trip.parksPlanned?.length) {
+    parts.push(`parks: ${parkLabels(trip.parksPlanned, trip.destination)}`)
+  }
+  if (trip.parkScheduleNotes?.trim()) {
+    parts.push(`schedule: ${trip.parkScheduleNotes.trim().slice(0, 80)}…`)
+  }
+
+  if (trip.partyAgeUnder7 || trip.partyAge7To12 || trip.partyAgeTeen) {
+    parts.push(
+      `ages: U7 ${trip.partyAgeUnder7 ?? 0} · 7–12 ${trip.partyAge7To12 ?? 0} · teens ${trip.partyAgeTeen ?? 0} · adults ${trip.partyAgeAdult ?? 0}`
+    )
+  }
+
   if (trip.childAges?.length) {
     const labels = trip.childAges.map((v) =>
       labelFor(v, CHILD_AGE_RANGE_OPTIONS)
     )
     parts.push(`kids: ${labels.join(', ')}`)
   }
+
+  if (trip.thrillTolerance) {
+    const tl = THRILL_TOLERANCE_OPTIONS.find(
+      (o) => o.value === trip.thrillTolerance
+    )
+    if (tl) parts.push(tl.label)
+  }
+  if (trip.firstTimerFocus) {
+    parts.push(
+      `focus: ${labelFor(trip.firstTimerFocus, FIRST_TIMER_FOCUS_OPTIONS)}`
+    )
+  }
+  if (trip.mobilityNotes?.trim())
+    parts.push(`mobility: ${trip.mobilityNotes.trim().slice(0, 60)}…`)
+  if (trip.dietaryRestrictions?.trim())
+    parts.push(`dietary: ${trip.dietaryRestrictions.trim().slice(0, 60)}…`)
+
   if (trip.datesFlexible) {
     parts.push('flexible dates')
     if (trip.flexibleTravelPeriod) {
@@ -76,8 +122,6 @@ export default function TripSummary({ trip, onEdit }) {
   else if (trip.onSite === false) parts.push('off-site')
   if (trip.resortTier)
     parts.push(labelFor(trip.resortTier, RESORT_TIER_OPTIONS))
-  if (trip.firstVisit === true) parts.push('first visit')
-  else if (trip.firstVisit === false) parts.push('returning')
   if (trip.specialOccasion)
     parts.push(
       `celebrating ${labelFor(trip.specialOccasion, SPECIAL_OCCASION_OPTIONS)}`
@@ -89,7 +133,8 @@ export default function TripSummary({ trip, onEdit }) {
     parts.push(labelFor(trip.ridePreference, RIDE_PREFERENCE_OPTIONS))
   if (trip.geniePlusInterest)
     parts.push(labelFor(trip.geniePlusInterest, GENIE_PLUS_OPTIONS))
-  if (trip.dietaryNotes) parts.push(`dietary: ${trip.dietaryNotes}`)
+  if (trip.dietaryNotes && !trip.dietaryRestrictions)
+    parts.push(`notes: ${trip.dietaryNotes}`)
 
   return (
     <div className="mb-4 rounded-[var(--radius-input)] border border-[var(--color-border)] border-l-4 border-l-[var(--color-lilac-strong)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm">

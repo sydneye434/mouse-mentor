@@ -11,7 +11,7 @@ export default function RadioCard({
 }) {
   return (
     <label
-      className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-input)] border-2 px-4 py-3 text-sm text-[var(--color-text-body)] transition-colors ${
+      className={`flex cursor-pointer items-start gap-3 rounded-[var(--radius-input)] border-2 px-4 py-3 text-sm text-[var(--color-text-body)] transition-colors ${
         checked
           ? 'border-[var(--color-lilac-strong)] bg-[var(--color-lilac-light)]'
           : 'border-[var(--color-border)] bg-[var(--color-input-bg)] hover:border-[var(--color-lilac-mid)]'
@@ -23,9 +23,9 @@ export default function RadioCard({
         value={radioValue ?? ''}
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 shrink-0 border-[var(--color-border)] text-[var(--color-lilac-strong)] focus:ring-2 focus:ring-[var(--color-lilac-mid)]"
+        className="mt-0.5 h-4 w-4 shrink-0 border-[var(--color-border)] text-[var(--color-lilac-strong)] focus:ring-2 focus:ring-[var(--color-lilac-mid)]"
       />
-      <span>{children}</span>
+      <div className="min-w-0 flex-1">{children}</div>
     </label>
   )
 }

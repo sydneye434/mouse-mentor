@@ -1,54 +1,47 @@
 /**
  * Developed by Sydney Edwards
- * Wizard-style onboarding: one step per screen, slide transitions, lucide step icons, Tailwind UI components.
+ * First-time visitor wizard: parks & dates, party by age, thrill level, mobility/diet, top priority, then save.
  */
 import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  MapPin,
-  Calendar,
+  CalendarRange,
   Users,
-  Building2,
-  Sparkles,
-  PartyPopper,
-  ClipboardList,
-  MessageSquareText,
+  Gauge,
+  Accessibility,
+  Target,
   Save,
 } from 'lucide-react'
 import {
   TextField,
-  SelectField,
   TextAreaField,
   CheckboxField,
   RadioCard,
   Button,
+  SelectField,
 } from '../ui'
 import {
   DESTINATIONS,
-  CHILD_AGE_RANGE_OPTIONS,
-  PRIORITY_OPTIONS,
-  STAY_OPTIONS,
-  RESORT_TIER_OPTIONS,
-  TRIP_PACE_OPTIONS,
-  SPECIAL_OCCASION_OPTIONS,
-  FLEXIBLE_TRAVEL_PERIOD_OPTIONS,
-  BUDGET_VIBE_OPTIONS,
-  RIDE_PREFERENCE_OPTIONS,
-  GENIE_PLUS_OPTIONS,
+  WDW_PARK_OPTIONS,
+  DL_PARK_OPTIONS,
+  THRILL_TOLERANCE_OPTIONS,
+  FIRST_TIMER_FOCUS_OPTIONS,
+  thrillToRidePreference,
 } from '../tripInfo'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
 const STEPS = [
-  { id: 'destination', title: "Where's the magic?", Icon: MapPin },
-  { id: 'dates', title: 'When are you going?', Icon: Calendar },
-  { id: 'crew', title: "Who's in your crew?", Icon: Users },
-  { id: 'stay', title: 'Where do you want to stay?', Icon: Building2 },
-  { id: 'first-time', title: 'First time or coming back?', Icon: Sparkles },
-  { id: 'vibe', title: "What's your vibe?", Icon: PartyPopper },
-  { id: 'details', title: 'A few more details', Icon: ClipboardList },
-  { id: 'extra', title: 'Anything else we should know?', Icon: MessageSquareText },
-  { id: 'save', title: 'Save your trip?', Icon: Save },
+  {
+    id: 'parks-days',
+    title: 'Parks & dates',
+    Icon: CalendarRange,
+  },
+  { id: 'party', title: 'Your group', Icon: Users },
+  { id: 'thrill', title: 'Thrill level', Icon: Gauge },
+  { id: 'comfort', title: 'Comfort & dining', Icon: Accessibility },
+  { id: 'priority', title: 'Top priority', Icon: Target },
+  { id: 'save', title: 'Save trip?', Icon: Save },
 ]
 
 const TOTAL_STEPS = STEPS.length
@@ -63,6 +56,25 @@ const slideVariants = {
     x: dir > 0 ? -40 : dir < 0 ? 40 : 0,
     opacity: 0,
   }),
+}
+
+function defaultTrip(initialTrip) {
+  return {
+    destination: initialTrip?.destination ?? 'disney-world',
+    arrivalDate: initialTrip?.arrivalDate ?? '',
+    departureDate: initialTrip?.departureDate ?? '',
+    parksPlanned: initialTrip?.parksPlanned ?? [],
+    parkScheduleNotes: initialTrip?.parkScheduleNotes ?? '',
+    partyAgeUnder7: initialTrip?.partyAgeUnder7 ?? 0,
+    partyAge7To12: initialTrip?.partyAge7To12 ?? 0,
+    partyAgeTeen: initialTrip?.partyAgeTeen ?? 0,
+    partyAgeAdult: initialTrip?.partyAgeAdult ?? 1,
+    thrillTolerance: initialTrip?.thrillTolerance ?? 'some_thrills',
+    mobilityNotes: initialTrip?.mobilityNotes ?? '',
+    dietaryRestrictions: initialTrip?.dietaryRestrictions ?? '',
+    firstTimerFocus: initialTrip?.firstTimerFocus ?? 'rides',
+    ...initialTrip,
+  }
 }
 
 export default function GetToKnowYou({
@@ -85,48 +97,21 @@ export default function GetToKnowYou({
       prevStepRef.current = step
     }
   }, [step])
+
   const [saveTripData, setSaveTripData] = useState(!!initialSaveTripData)
-  const [trip, setTrip] = useState(() => ({
-    destination: initialTrip?.destination ?? 'disney-world',
-    arrivalDate: initialTrip?.arrivalDate ?? '',
-    departureDate: initialTrip?.departureDate ?? '',
-    numberOfAdults: initialTrip?.numberOfAdults ?? 1,
-    numberOfChildren: initialTrip?.numberOfChildren ?? 0,
-    childAges: initialTrip?.childAges ?? [],
-    datesFlexible: initialTrip?.datesFlexible ?? false,
-    flexibleTravelPeriod: initialTrip?.flexibleTravelPeriod ?? '',
-    parkDays: initialTrip?.parkDays ?? '',
-    onSite: initialTrip?.onSite ?? null,
-    resortTier: initialTrip?.resortTier ?? '',
-    firstVisit: initialTrip?.firstVisit ?? null,
-    specialOccasion: initialTrip?.specialOccasion ?? '',
-    priorities: initialTrip?.priorities ?? [],
-    tripPace: initialTrip?.tripPace ?? '',
-    budgetVibe: initialTrip?.budgetVibe ?? '',
-    ridePreference: initialTrip?.ridePreference ?? '',
-    geniePlusInterest: initialTrip?.geniePlusInterest ?? '',
-    dietaryNotes: initialTrip?.dietaryNotes ?? '',
-    ...initialTrip,
-  }))
-
-  const numChildren = Math.max(0, Number(trip.numberOfChildren) || 0)
-
-  useEffect(() => {
-    if (numChildren > trip.childAges.length) {
-      setTrip((t) => ({
-        ...t,
-        childAges: [
-          ...t.childAges,
-          ...Array(numChildren - t.childAges.length).fill(''),
-        ],
-      }))
-    } else if (numChildren < trip.childAges.length) {
-      setTrip((t) => ({ ...t, childAges: t.childAges.slice(0, numChildren) }))
-    }
-  }, [numChildren, trip.childAges.length])
+  const [trip, setTrip] = useState(() => defaultTrip(initialTrip))
 
   function update(fields) {
     setTrip((t) => ({ ...t, ...fields }))
+  }
+
+  function togglePark(id) {
+    setTrip((t) => ({
+      ...t,
+      parksPlanned: t.parksPlanned.includes(id)
+        ? t.parksPlanned.filter((p) => p !== id)
+        : [...t.parksPlanned, id],
+    }))
   }
 
   function next() {
@@ -144,8 +129,8 @@ export default function GetToKnowYou({
   }
 
   function buildAndSubmit() {
-    const arrival = trip.datesFlexible ? null : trip.arrivalDate || null
-    const departure = trip.datesFlexible ? null : trip.departureDate || null
+    const arrival = trip.arrivalDate || null
+    const departure = trip.departureDate || null
     let lengthOfStayDays = null
     if (arrival && departure) {
       const a = new Date(arrival)
@@ -153,29 +138,25 @@ export default function GetToKnowYou({
       lengthOfStayDays =
         Math.max(0, Math.ceil((b - a) / (1000 * 60 * 60 * 24))) + 1
     }
-    const ages = trip.childAges
-      .slice(0, numChildren)
-      .filter((a) => a !== undefined && a !== '')
-    const parkDaysNum =
-      trip.parkDays === '' || trip.parkDays == null
-        ? undefined
-        : Number(trip.parkDays)
+    const pa = Number(trip.partyAgeAdult) || 0
+    const pt = Number(trip.partyAgeTeen) || 0
+    const c712 = Number(trip.partyAge7To12) || 0
+    const u7 = Number(trip.partyAgeUnder7) || 0
+    const numberOfAdults = Math.max(1, pa + pt)
+    const numberOfChildren = u7 + c712
+
     onSubmit({
       ...trip,
       arrivalDate: arrival,
       departureDate: departure,
       lengthOfStayDays,
-      childAges: ages.length ? ages : undefined,
-      resortTier: trip.resortTier || undefined,
-      specialOccasion: trip.specialOccasion || undefined,
-      tripPace: trip.tripPace || undefined,
-      flexibleTravelPeriod: trip.flexibleTravelPeriod || undefined,
-      parkDays: parkDaysNum,
-      budgetVibe: trip.budgetVibe || undefined,
-      ridePreference: trip.ridePreference || undefined,
-      geniePlusInterest: trip.geniePlusInterest || undefined,
-      dietaryNotes: trip.dietaryNotes?.trim() || undefined,
-      onSite: trip.onSite,
+      firstVisit: true,
+      numberOfAdults,
+      numberOfChildren,
+      childAges: undefined,
+      priorities: trip.firstTimerFocus ? [trip.firstTimerFocus] : undefined,
+      ridePreference: thrillToRidePreference(trip.thrillTolerance),
+      datesFlexible: false,
       saveTripData,
     })
   }
@@ -186,9 +167,11 @@ export default function GetToKnowYou({
   const stepMeta = STEPS[step - 1]
   const StepIcon = stepMeta.Icon
 
+  const parkOptions =
+    trip.destination === 'disneyland' ? DL_PARK_OPTIONS : WDW_PARK_OPTIONS
+
   return (
     <div className="mx-auto mb-6 max-w-md">
-      {/* Progress */}
       <div className="mb-2">
         <div
           className="mb-2 h-1.5 overflow-hidden rounded-full bg-[var(--color-border)]"
@@ -220,6 +203,9 @@ export default function GetToKnowYou({
           ))}
         </div>
       </div>
+      <p className="mb-2 text-center text-[0.7rem] font-semibold uppercase tracking-wide text-[var(--color-lilac-strong)]">
+        First visit? Let&apos;s plan your magic
+      </p>
       <p className="mb-4 text-center text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
         Step {step} of {TOTAL_STEPS}
       </p>
@@ -249,16 +235,19 @@ export default function GetToKnowYou({
               {step === 1 && (
                 <div>
                   <h2 className="mb-2 font-display text-xl font-semibold text-[var(--color-text-heading)]">
-                    Where&apos;s the magic calling you?
+                    Which parks are you visiting—and when?
                   </h2>
                   <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                    We&apos;ll tailor park hours, dining, rides, and tips to
-                    this destination.
+                    Pick your resort, trip dates, and every park you plan to
+                    visit. Add a day-by-day note if you already know it—we&apos;ll
+                    use this in every answer.
                   </p>
                   <SelectField
-                    label="Destination"
+                    label="Resort destination"
                     value={trip.destination}
-                    onChange={(e) => update({ destination: e.target.value })}
+                    onChange={(e) =>
+                      update({ destination: e.target.value, parksPlanned: [] })
+                    }
                   >
                     {DESTINATIONS.map((d) => (
                       <option key={d.value} value={d.value}>
@@ -266,360 +255,209 @@ export default function GetToKnowYou({
                       </option>
                     ))}
                   </SelectField>
+                  <div className="mb-4 flex flex-col gap-4 sm:flex-row">
+                    <TextField
+                      className="min-w-0 flex-1"
+                      label="Trip start (arrival)"
+                      type="date"
+                      value={trip.arrivalDate}
+                      onChange={(e) => update({ arrivalDate: e.target.value })}
+                      min={today()}
+                    />
+                    <TextField
+                      className="min-w-0 flex-1"
+                      label="Trip end (departure)"
+                      type="date"
+                      value={trip.departureDate}
+                      onChange={(e) =>
+                        update({ departureDate: e.target.value })
+                      }
+                      min={trip.arrivalDate || today()}
+                    />
+                  </div>
+                  <p className="mb-2 text-xs font-medium text-[var(--color-text-muted)]">
+                    Select each park you plan to visit
+                  </p>
+                  <div className="mb-4 flex flex-col gap-2">
+                    {parkOptions.map((o) => (
+                      <CheckboxField
+                        key={o.value}
+                        checked={trip.parksPlanned.includes(o.value)}
+                        onChange={() => togglePark(o.value)}
+                      >
+                        {o.label}
+                      </CheckboxField>
+                    ))}
+                  </div>
+                  <TextAreaField
+                    label="Day-by-day plan (optional)"
+                    placeholder="e.g. Day 1: Magic Kingdom, Day 2: EPCOT & Disney Springs…"
+                    value={trip.parkScheduleNotes}
+                    onChange={(e) =>
+                      update({ parkScheduleNotes: e.target.value })
+                    }
+                    rows={3}
+                  />
                 </div>
               )}
 
               {step === 2 && (
                 <div>
                   <h2 className="mb-2 font-display text-xl font-semibold text-[var(--color-text-heading)]">
-                    When are you going?
+                    Who&apos;s in your group?
                   </h2>
                   <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                    We&apos;ll use this for crowd levels, seasonal events, and
-                    how many park days to plan.
+                    Count each person once. We use this for rides, height
+                    rules, pacing, and dining.
                   </p>
-                  <div className="mb-4">
-                    <CheckboxField
-                      checked={trip.datesFlexible}
+                  <div className="grid grid-cols-2 gap-3">
+                    <TextField
+                      label="Under 7"
+                      type="number"
+                      min={0}
+                      max={20}
+                      inputClassName="max-w-full"
+                      value={trip.partyAgeUnder7}
                       onChange={(e) =>
-                        update({ datesFlexible: e.target.checked })
+                        update({
+                          partyAgeUnder7: Math.max(
+                            0,
+                            Number(e.target.value) || 0
+                          ),
+                        })
                       }
-                    >
-                      My dates are flexible
-                    </CheckboxField>
+                    />
+                    <TextField
+                      label="Ages 7–12"
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={trip.partyAge7To12}
+                      onChange={(e) =>
+                        update({
+                          partyAge7To12: Math.max(
+                            0,
+                            Number(e.target.value) || 0
+                          ),
+                        })
+                      }
+                    />
+                    <TextField
+                      label="Teens (13–17)"
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={trip.partyAgeTeen}
+                      onChange={(e) =>
+                        update({
+                          partyAgeTeen: Math.max(
+                            0,
+                            Number(e.target.value) || 0
+                          ),
+                        })
+                      }
+                    />
+                    <TextField
+                      label="Adults (18+)"
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={trip.partyAgeAdult}
+                      onChange={(e) =>
+                        update({
+                          partyAgeAdult: Math.max(
+                            1,
+                            Number(e.target.value) || 1
+                          ),
+                        })
+                      }
+                    />
                   </div>
-                  {trip.datesFlexible && (
-                    <SelectField
-                      label="Roughly when? (helps with crowd & event tips)"
-                      value={trip.flexibleTravelPeriod}
-                      onChange={(e) =>
-                        update({ flexibleTravelPeriod: e.target.value })
-                      }
-                    >
-                      {FLEXIBLE_TRAVEL_PERIOD_OPTIONS.map((o) => (
-                        <option key={o.value || 'none'} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </SelectField>
-                  )}
-                  {!trip.datesFlexible && (
-                    <div className="flex flex-col gap-4 sm:flex-row">
-                      <TextField
-                        label="Arrival"
-                        type="date"
-                        value={trip.arrivalDate}
-                        onChange={(e) => update({ arrivalDate: e.target.value })}
-                        min={today()}
-                      />
-                      <TextField
-                        label="Departure"
-                        type="date"
-                        value={trip.departureDate}
-                        onChange={(e) =>
-                          update({ departureDate: e.target.value })
-                        }
-                        min={trip.arrivalDate || today()}
-                      />
-                    </div>
-                  )}
                 </div>
               )}
 
               {step === 3 && (
                 <div>
                   <h2 className="mb-2 font-display text-xl font-semibold text-[var(--color-text-heading)]">
-                    Who&apos;s in your crew?
+                    What&apos;s your thrill tolerance?
                   </h2>
                   <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                    We&apos;ll suggest rides by height, age-appropriate
-                    experiences, and dining that fits your group.
+                    We&apos;ll match rides and shows to what feels right—no
+                    judgment either way.
                   </p>
-                  <div className="mb-4 flex flex-col gap-4 sm:flex-row">
-                    <TextField
-                      label="Adults"
-                      type="number"
-                      min={1}
-                      max={20}
-                      inputClassName="w-full sm:w-24"
-                      value={trip.numberOfAdults}
-                      onChange={(e) =>
-                        update({ numberOfAdults: Number(e.target.value) || 1 })
-                      }
-                    />
-                    <TextField
-                      label="Children"
-                      type="number"
-                      min={0}
-                      max={20}
-                      inputClassName="w-full sm:w-24"
-                      value={trip.numberOfChildren}
-                      onChange={(e) =>
-                        update({ numberOfChildren: Number(e.target.value) || 0 })
-                      }
-                    />
+                  <div className="flex flex-col gap-3">
+                    {THRILL_TOLERANCE_OPTIONS.map((o) => (
+                      <RadioCard
+                        key={o.value}
+                        name="thrill"
+                        radioValue={o.value}
+                        checked={trip.thrillTolerance === o.value}
+                        onChange={() => update({ thrillTolerance: o.value })}
+                      >
+                        <span className="font-medium">{o.label}</span>
+                        <span className="mt-1 block text-xs text-[var(--color-text-muted)]">
+                          {o.description}
+                        </span>
+                      </RadioCard>
+                    ))}
                   </div>
-                  {numChildren > 0 && (
-                    <div className="mb-2">
-                      <span className="mb-2 block text-xs font-medium text-[var(--color-text-muted)]">
-                        Ages of children (height & age tips)
-                      </span>
-                      <div className="flex flex-wrap gap-4">
-                        {trip.childAges.slice(0, numChildren).map((ageRange, i) => (
-                          <SelectField
-                            key={i}
-                            label={`Child ${i + 1}`}
-                            className="min-w-[10rem] flex-1"
-                            selectClassName="min-w-[9rem]"
-                            value={ageRange === '' ? '' : ageRange}
-                            onChange={(e) => {
-                              const next = [...trip.childAges]
-                              next[i] = e.target.value
-                              update({ childAges: next })
-                            }}
-                          >
-                            <option value="">Select…</option>
-                            {CHILD_AGE_RANGE_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </SelectField>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
               {step === 4 && (
                 <div>
                   <h2 className="mb-2 font-display text-xl font-semibold text-[var(--color-text-heading)]">
-                    Where do you want to stay?
+                    Mobility & dining needs
                   </h2>
                   <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                    We&apos;ll factor in Early Theme Park Entry, transportation,
-                    and resort recommendations.
+                    Wheelchairs, ECVs, allergies, or other needs—so we can
+                    suggest realistic routes and restaurants.
                   </p>
-                  <div className="mb-4 flex flex-col gap-2">
-                    {STAY_OPTIONS.map((o) => {
-                      const isSelected =
-                        (o.value === 'on-site' && trip.onSite === true) ||
-                        (o.value === 'off-site' && trip.onSite === false) ||
-                        (o.value === 'unsure' &&
-                          (trip.onSite === null || trip.onSite === undefined))
-                      return (
-                        <RadioCard
-                          key={o.value}
-                          name="stay"
-                          radioValue={o.value}
-                          checked={isSelected}
-                          onChange={() =>
-                            update({
-                              onSite:
-                                o.value === 'on-site'
-                                  ? true
-                                  : o.value === 'off-site'
-                                    ? false
-                                    : null,
-                              resortTier:
-                                o.value === 'on-site' ? trip.resortTier : '',
-                            })
-                          }
-                        >
-                          {o.label}
-                        </RadioCard>
-                      )
-                    })}
-                  </div>
-                  {trip.onSite === true && (
-                    <SelectField
-                      label="Resort tier"
-                      value={trip.resortTier}
-                      onChange={(e) => update({ resortTier: e.target.value })}
-                    >
-                      {RESORT_TIER_OPTIONS.map((o) => (
-                        <option key={o.value || 'unsure'} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </SelectField>
-                  )}
+                  <TextAreaField
+                    label="Mobility & accessibility"
+                    placeholder="e.g. ECV, difficulty standing in long lines, need frequent breaks…"
+                    value={trip.mobilityNotes}
+                    onChange={(e) => update({ mobilityNotes: e.target.value })}
+                    rows={3}
+                  />
+                  <TextAreaField
+                    label="Dietary restrictions"
+                    placeholder="e.g. vegetarian, nut allergy, gluten-free, kosher…"
+                    value={trip.dietaryRestrictions}
+                    onChange={(e) =>
+                      update({ dietaryRestrictions: e.target.value })
+                    }
+                    rows={3}
+                  />
                 </div>
               )}
 
               {step === 5 && (
                 <div>
                   <h2 className="mb-2 font-display text-xl font-semibold text-[var(--color-text-heading)]">
-                    First time or coming back?
+                    What matters most on this trip?
                   </h2>
                   <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                    We&apos;ll adjust our advice — more how-to for first-timers,
-                    shortcuts for returning guests.
+                    Pick the one pillar we should lean on—we&apos;ll still keep
+                    the rest in balance.
                   </p>
-                  <div className="mb-4 flex flex-col gap-2">
-                    <RadioCard
-                      name="first"
-                      radioValue="yes"
-                      checked={trip.firstVisit === true}
-                      onChange={() => update({ firstVisit: true })}
-                    >
-                      First time!
-                    </RadioCard>
-                    <RadioCard
-                      name="first"
-                      radioValue="no"
-                      checked={trip.firstVisit === false}
-                      onChange={() => update({ firstVisit: false })}
-                    >
-                      I&apos;ve been before
-                    </RadioCard>
-                  </div>
-                  <SelectField
-                    label="Celebrating something?"
-                    value={trip.specialOccasion}
-                    onChange={(e) => update({ specialOccasion: e.target.value })}
-                  >
-                    {SPECIAL_OCCASION_OPTIONS.map((o) => (
-                      <option key={o.value || 'none'} value={o.value}>
+                  <div className="flex flex-col gap-2">
+                    {FIRST_TIMER_FOCUS_OPTIONS.map((o) => (
+                      <RadioCard
+                        key={o.value}
+                        name="focus"
+                        radioValue={o.value}
+                        checked={trip.firstTimerFocus === o.value}
+                        onChange={() => update({ firstTimerFocus: o.value })}
+                      >
                         {o.label}
-                      </option>
+                      </RadioCard>
                     ))}
-                  </SelectField>
-                  <p className="mt-3 text-sm text-[var(--color-text-muted)]">
-                    We&apos;ll suggest ways to make the celebration extra
-                    magical.
-                  </p>
+                  </div>
                 </div>
               )}
 
               {step === 6 && (
-                <div>
-                  <h2 className="mb-2 font-display text-xl font-semibold text-[var(--color-text-heading)]">
-                    What&apos;s your vibe?
-                  </h2>
-                  <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                    We&apos;ll prioritize recommendations and daily pacing from
-                    what you pick.
-                  </p>
-                  <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {PRIORITY_OPTIONS.map((o) => (
-                      <CheckboxField
-                        key={o.value}
-                        checked={trip.priorities.includes(o.value)}
-                        onChange={() => {
-                          const next = trip.priorities.includes(o.value)
-                            ? trip.priorities.filter((p) => p !== o.value)
-                            : [...trip.priorities, o.value]
-                          update({ priorities: next })
-                        }}
-                      >
-                        {o.label}
-                      </CheckboxField>
-                    ))}
-                  </div>
-                  <SelectField
-                    label="Trip pace"
-                    value={trip.tripPace}
-                    onChange={(e) => update({ tripPace: e.target.value })}
-                  >
-                    <option value="">Select…</option>
-                    {TRIP_PACE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </SelectField>
-                  <p className="mt-3 text-sm text-[var(--color-text-muted)]">
-                    This helps us suggest how many activities per day and when
-                    to build in rest.
-                  </p>
-                </div>
-              )}
-
-              {step === 7 && (
-                <div>
-                  <h2 className="mb-2 font-display text-xl font-semibold text-[var(--color-text-heading)]">
-                    A few more details
-                  </h2>
-                  <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                    Park days, dining budget, ride style, and Genie+ interest.
-                  </p>
-                  <TextField
-                    label="How many park days? (if you know)"
-                    type="number"
-                    min={1}
-                    max={14}
-                    placeholder="e.g. 4"
-                    inputClassName="max-w-[10rem]"
-                    value={trip.parkDays === '' ? '' : trip.parkDays}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      update({ parkDays: v === '' ? '' : Number(v) || '' })
-                    }}
-                  />
-                  <SelectField
-                    label="Budget for dining & extras"
-                    value={trip.budgetVibe}
-                    onChange={(e) => update({ budgetVibe: e.target.value })}
-                  >
-                    {BUDGET_VIBE_OPTIONS.map((o) => (
-                      <option key={o.value || 'none'} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </SelectField>
-                  <SelectField
-                    label="Ride style"
-                    value={trip.ridePreference}
-                    onChange={(e) => update({ ridePreference: e.target.value })}
-                  >
-                    {RIDE_PREFERENCE_OPTIONS.map((o) => (
-                      <option key={o.value || 'none'} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </SelectField>
-                  <SelectField
-                    label="Genie+ / Lightning Lanes"
-                    value={trip.geniePlusInterest}
-                    onChange={(e) =>
-                      update({ geniePlusInterest: e.target.value })
-                    }
-                  >
-                    {GENIE_PLUS_OPTIONS.map((o) => (
-                      <option key={o.value || 'none'} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </SelectField>
-                </div>
-              )}
-
-              {step === 8 && (
-                <div>
-                  <h2 className="mb-2 font-display text-xl font-semibold text-[var(--color-text-heading)]">
-                    Anything else we should know?
-                  </h2>
-                  <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                    Dietary needs, must-dos, favorites, mobility, or what
-                    you&apos;re excited about.
-                  </p>
-                  <TextAreaField
-                    label="Notes"
-                    placeholder="e.g. vegetarian, nut allergy, must ride Rise of the Resistance…"
-                    value={trip.dietaryNotes}
-                    onChange={(e) => update({ dietaryNotes: e.target.value })}
-                    rows={4}
-                  />
-                  <p className="mt-3 text-sm text-[var(--color-text-muted)]">
-                    Next: we&apos;ll ask whether you want to save your trip on
-                    the server.
-                  </p>
-                </div>
-              )}
-
-              {step === 9 && (
                 <div
                   className="rounded-[var(--radius-input)] border border-[var(--color-border)] bg-[var(--color-bg-surface-blue)] p-4"
                   role="region"
@@ -652,8 +490,8 @@ export default function GetToKnowYou({
                   {isLoggedIn ? (
                     <>
                       <p className="mb-3 text-sm text-[var(--color-text-muted)]">
-                        We do not save your trip details unless you turn on the
-                        option below. Your data is tied to your account.
+                        We only save your trip if you opt in below. Your data is
+                        tied to your account.
                       </p>
                       <CheckboxField
                         checked={saveTripData}
@@ -669,8 +507,7 @@ export default function GetToKnowYou({
                   ) : (
                     <>
                       <p className="mb-3 text-sm text-[var(--color-text-muted)]">
-                        Saving your trip requires an account. Sign in or create
-                        one to save your trip and return to it later from any
+                        Saving requires an account so you can return on any
                         device.
                       </p>
                       <Button type="button" onClick={onOpenAuth}>
@@ -692,7 +529,7 @@ export default function GetToKnowYou({
           )}
           <div className="flex-1" />
           <Button type="button" onClick={isDone ? buildAndSubmit : next}>
-            {isDone ? 'Start my adventure' : 'Next'}
+            {isDone ? 'Start planning' : 'Next'}
           </Button>
         </div>
       </div>

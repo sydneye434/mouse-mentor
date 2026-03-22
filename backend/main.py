@@ -174,6 +174,17 @@ class TripInfo(BaseModel):
     ride_preference: Optional[str] = None
     genie_plus_interest: Optional[str] = None
     dietary_notes: Optional[str] = None
+    # First-time visitor wizard (primary personalization for AI)
+    parks_planned: Optional[List[str]] = None
+    park_schedule_notes: Optional[str] = None
+    party_age_under_7: int = 0
+    party_age_7_12: int = 0
+    party_age_teen: int = 0
+    party_age_adult: int = 1
+    thrill_tolerance: Optional[str] = None
+    mobility_notes: Optional[str] = None
+    dietary_restrictions: Optional[str] = None
+    first_timer_focus: Optional[str] = None
 
 
 class ShortestWaitItem(BaseModel):

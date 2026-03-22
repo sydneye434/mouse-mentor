@@ -31,8 +31,44 @@ SUMMARY_MODEL = os.environ.get("SUMMARY_MODEL", GROQ_MODEL)
 CHAT_HISTORY_WINDOW = int(os.environ.get("CHAT_HISTORY_WINDOW", "10"))
 
 
+def _park_label_map() -> dict[str, str]:
+    return {
+        "magic-kingdom": "Magic Kingdom",
+        "epcot": "EPCOT",
+        "hollywood-studios": "Disney's Hollywood Studios",
+        "animal-kingdom": "Disney's Animal Kingdom",
+        "typhoon-lagoon": "Typhoon Lagoon",
+        "blizzard-beach": "Blizzard Beach",
+        "disney-springs": "Disney Springs",
+        "disneyland-park": "Disneyland Park",
+        "california-adventure": "Disney California Adventure",
+        "downtown-disney": "Downtown Disney",
+    }
+
+
+def _thrill_label(t: Optional[str]) -> str:
+    if not t:
+        return ""
+    return {
+        "no_scary": "No scary rides — gentle attractions & shows",
+        "some_thrills": "Some thrills — mix of mild and moderate",
+        "bring_it_on": "Bring it on — coasters & intense attractions welcome",
+    }.get(t, t)
+
+
+def _focus_label(t: Optional[str]) -> str:
+    if not t:
+        return ""
+    return {
+        "rides": "Rides & attractions",
+        "characters": "Character meets & greets",
+        "shows": "Shows, parades & fireworks",
+        "food": "Food & dining",
+    }.get(t, t)
+
+
 def _trip_context(trip: Optional[dict[str, Any]]) -> str:
-    """Build a short context string from trip info."""
+    """Build a rich context string from trip info (first-time visitor fields prioritized)."""
     if not trip:
         return "The guest has not shared trip details yet."
     parts = []
@@ -40,11 +76,26 @@ def _trip_context(trip: Optional[dict[str, Any]]) -> str:
     if dest:
         name = "Walt Disney World" if dest == "disney-world" else "Disneyland"
         parts.append(f"Destination: {name}")
+
+    if trip.get("first_visit") is True:
+        parts.append("FIRST-TIME VISITOR — explain basics; prioritize clarity and pacing")
+
+    u7 = trip.get("party_age_under_7")
+    r712 = trip.get("party_age_7_12")
+    teen = trip.get("party_age_teen")
+    adult = trip.get("party_age_adult")
+    if any(x is not None for x in (u7, r712, teen, adult)):
+        parts.append(
+            f"Party by age — under 7: {u7 or 0} | 7–12: {r712 or 0} | "
+            f"teens (13–17): {teen or 0} | adults (18+): {adult or 0}"
+        )
+
     adults = trip.get("number_of_adults", 1)
     kids = trip.get("number_of_children", 0)
-    parts.append(f"Party: {adults} adult(s), {kids} child(ren)")
+    parts.append(f"Party totals (tickets): {adults} adult(s), {kids} child(ren)")
     if trip.get("child_ages"):
-        parts.append(f"Child ages: {', '.join(trip['child_ages'])}")
+        parts.append(f"Child age ranges (legacy): {', '.join(trip['child_ages'])}")
+
     if trip.get("arrival_date"):
         parts.append(f"Arrival: {trip['arrival_date']}")
     if trip.get("departure_date"):
@@ -63,16 +114,40 @@ def _trip_context(trip: Optional[dict[str, Any]]) -> str:
             "nov-dec": "Nov–Dec",
         }
         parts.append(f"Flexible timing: {period_labels.get(period, period)}")
+
+    parks = trip.get("parks_planned")
+    if parks:
+        labels = _park_label_map()
+        parts.append(
+            "Parks they plan to visit: "
+            + ", ".join(labels.get(p, p) for p in parks)
+        )
+    if trip.get("park_schedule_notes"):
+        parts.append(f"Day-by-day plan (notes): {trip['park_schedule_notes']}")
+
     if trip.get("park_days"):
-        parts.append(f"Park days: {trip['park_days']}")
+        parts.append(f"Park days (legacy): {trip['park_days']}")
+
+    tt = trip.get("thrill_tolerance")
+    if tt:
+        parts.append(f"Thrill tolerance: {_thrill_label(tt)}")
+    if trip.get("mobility_notes"):
+        parts.append(f"Mobility / accessibility: {trip['mobility_notes']}")
+    if trip.get("dietary_restrictions"):
+        parts.append(f"Dietary restrictions: {trip['dietary_restrictions']}")
+
+    ff = trip.get("first_timer_focus")
+    if ff:
+        parts.append(f"What matters most on this trip: {_focus_label(ff)}")
+
     if trip.get("priorities"):
-        parts.append(f"Priorities: {', '.join(trip['priorities'])}")
+        parts.append(f"Priorities (legacy): {', '.join(trip['priorities'])}")
     if trip.get("on_site") is not None:
         parts.append("Staying on-site" if trip["on_site"] else "Staying off-site")
     if trip.get("resort_tier"):
         parts.append(f"Resort tier: {trip['resort_tier']}")
-    if trip.get("first_visit") is not None:
-        parts.append("First visit" if trip["first_visit"] else "Returning visitor")
+    if trip.get("first_visit") is False:
+        parts.append("Returning visitor")
     if trip.get("special_occasion"):
         parts.append(f"Celebrating: {trip['special_occasion']}")
     if trip.get("trip_pace"):
@@ -80,11 +155,12 @@ def _trip_context(trip: Optional[dict[str, Any]]) -> str:
     if trip.get("budget_vibe"):
         parts.append(f"Budget vibe: {trip['budget_vibe']}")
     if trip.get("ride_preference"):
-        parts.append(f"Ride preference: {trip['ride_preference']}")
+        parts.append(f"Ride preference (legacy): {trip['ride_preference']}")
     if trip.get("genie_plus_interest"):
         parts.append(f"Genie+ / Lightning Lanes: {trip['genie_plus_interest']}")
     if trip.get("dietary_notes"):
-        parts.append(f"Dietary notes: {trip['dietary_notes']}")
+        parts.append(f"Other notes (combined): {trip['dietary_notes']}")
+
     return " | ".join(parts) if parts else "Trip details not specified."
 
 
@@ -133,12 +209,19 @@ def _build_system_and_messages(
             web_ctx = "Relevant information from the web:\n\n" + web_ctx
 
     system_parts = [
-        "You are Mouse Mentor, a friendly Disney vacation planning assistant. "
+        "You are Mouse Mentor, a friendly Disney vacation planning assistant for guests—especially first-timers. "
+        "FIRST-TIME PERSONALIZATION (when first_visit is true or party_age_* / thrill_tolerance / first_timer_focus "
+        "are set): Use parks_planned and park_schedule_notes for which park on which day; "
+        "party_age_under_7, party_age_7_12, party_age_teen, party_age_adult for ride height, "
+        "scariness, stroller needs, and dining; thrill_tolerance (no_scary / some_thrills / bring_it_on) for "
+        "how intense rides should be; mobility_notes and dietary_restrictions for accessibility and food; "
+        "first_timer_focus (rides vs characters vs shows vs food) to weight recommendations. "
+        "Explain park basics, Genie+, and boarding when relevant—don't assume prior knowledge. "
         "Use the guest's trip details to personalize every answer: "
         "destination for park-specific info; dates (or flexible_travel_period) for crowds and events; "
-        "park_days and length_of_stay for how many parks to recommend and itinerary depth; "
-        "party size and child_ages for ride height requirements, age-appropriate suggestions, and dining; "
-        "priorities to emphasize what they care about most (rides, food, characters, shows, parades, relaxation, shopping, table-service); "
+        "park_days and length_of_stay for itinerary depth; "
+        "party size and child_ages (legacy) for age-appropriate suggestions; "
+        "priorities (legacy list) for emphasis; "
         "trip_pace to suggest how many activities per day and when to rest; "
         "budget_vibe (value/moderate/splurge) for dining and experience recommendations; "
         "ride_preference (thrill/mix/mild) for attraction suggestions; "
@@ -147,7 +230,7 @@ def _build_system_and_messages(
         "special occasion and any notes (dietary, must-dos, characters, mobility) for restaurant and experience tips. "
         "Be concise, practical, and encouraging. "
         "If you use information from the web context, cite it naturally (e.g. 'According to recent info...'). "
-        "If the guest hasn't shared trip details, suggest they fill out the trip form for better advice.",
+        "If the guest hasn't shared trip details, suggest they complete the trip questionnaire for better advice.",
         "\n\nGuest trip context: ",
         trip_ctx,
     ]

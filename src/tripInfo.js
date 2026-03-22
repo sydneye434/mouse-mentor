@@ -1,9 +1,14 @@
 /**
  * Developed by Sydney Edwards
- * Trip details collected via "get to know you" flow.
+ * Trip details for first-time visitor onboarding + API compatibility.
  * Matches backend TripInfo; use for API payloads and shared option constants.
  */
 export function toTripInfoPayload(trip) {
+  const dietaryCombined = [trip.dietaryRestrictions, trip.mobilityNotes, trip.parkScheduleNotes]
+    .map((s) => (typeof s === 'string' ? s.trim() : ''))
+    .filter(Boolean)
+    .join(' | ')
+
   return {
     destination: trip.destination,
     arrival_date: trip.arrivalDate || null,
@@ -24,7 +29,18 @@ export function toTripInfoPayload(trip) {
     budget_vibe: trip.budgetVibe || null,
     ride_preference: trip.ridePreference || null,
     genie_plus_interest: trip.geniePlusInterest || null,
-    dietary_notes: trip.dietaryNotes?.trim() || null,
+    dietary_notes: trip.dietaryNotes?.trim() || dietaryCombined || null,
+    /* First-timer profile (heavily used in system prompt) */
+    parks_planned: trip.parksPlanned?.length ? trip.parksPlanned : null,
+    park_schedule_notes: trip.parkScheduleNotes?.trim() || null,
+    party_age_under_7: trip.partyAgeUnder7 ?? 0,
+    party_age_7_12: trip.partyAge7To12 ?? 0,
+    party_age_teen: trip.partyAgeTeen ?? 0,
+    party_age_adult: trip.partyAgeAdult ?? 1,
+    thrill_tolerance: trip.thrillTolerance || null,
+    mobility_notes: trip.mobilityNotes?.trim() || null,
+    dietary_restrictions: trip.dietaryRestrictions?.trim() || null,
+    first_timer_focus: trip.firstTimerFocus || null,
   }
 }
 
@@ -32,6 +48,56 @@ export const DESTINATIONS = [
   { value: 'disney-world', label: 'Walt Disney World (Florida)' },
   { value: 'disneyland', label: 'Disneyland (California)' },
 ]
+
+/** WDW parks (theme + water + Springs) */
+export const WDW_PARK_OPTIONS = [
+  { value: 'magic-kingdom', label: 'Magic Kingdom' },
+  { value: 'epcot', label: 'EPCOT' },
+  { value: 'hollywood-studios', label: "Disney's Hollywood Studios" },
+  { value: 'animal-kingdom', label: "Disney's Animal Kingdom" },
+  { value: 'typhoon-lagoon', label: 'Typhoon Lagoon' },
+  { value: 'blizzard-beach', label: 'Blizzard Beach' },
+  { value: 'disney-springs', label: 'Disney Springs' },
+]
+
+export const DL_PARK_OPTIONS = [
+  { value: 'disneyland-park', label: 'Disneyland Park' },
+  { value: 'california-adventure', label: 'Disney California Adventure' },
+  { value: 'downtown-disney', label: 'Downtown Disney' },
+]
+
+export const THRILL_TOLERANCE_OPTIONS = [
+  {
+    value: 'no_scary',
+    label: 'No scary rides — gentle attractions & shows',
+    description: 'Avoid dark rides, big drops, and intense motion.',
+  },
+  {
+    value: 'some_thrills',
+    label: 'Some thrills — mix of mild and moderate',
+    description: 'Okay with a few bigger rides if we build up to them.',
+  },
+  {
+    value: 'bring_it_on',
+    label: 'Bring it on — coasters & intensity welcome',
+    description: 'Love the big thrills and want to ride the headliners.',
+  },
+]
+
+export const FIRST_TIMER_FOCUS_OPTIONS = [
+  { value: 'rides', label: 'Rides & attractions' },
+  { value: 'characters', label: 'Character meets & greets' },
+  { value: 'shows', label: 'Shows, parades & fireworks' },
+  { value: 'food', label: 'Food & dining' },
+]
+
+/** Map thrill tolerance to legacy ride_preference for older tools */
+export function thrillToRidePreference(thrill) {
+  if (thrill === 'no_scary') return 'mild'
+  if (thrill === 'some_thrills') return 'mix'
+  if (thrill === 'bring_it_on') return 'thrill'
+  return 'mix'
+}
 
 export const CHILD_AGE_RANGE_OPTIONS = [
   { value: '0-2', label: '0–2 years' },
