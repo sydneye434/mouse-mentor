@@ -106,6 +106,10 @@ export default function App() {
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [theme, setTheme] = useState(() => getStoredTheme() || 'light')
+  const [waitTimesData, setWaitTimesData] = useState(null)
+  const [waitPanelOpen, setWaitPanelOpen] = useState(false)
+  const [waitTimesLoading, setWaitTimesLoading] = useState(false)
+  const [waitTimesError, setWaitTimesError] = useState(null)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -163,6 +167,41 @@ export default function App() {
     loadSavedTrip()
   }, [loadSavedTrip])
 
+  const fetchWaitTimes = useCallback(
+    async (refresh = false) => {
+      setWaitTimesLoading(true)
+      setWaitTimesError(null)
+      try {
+        const q = refresh ? '?refresh=true' : ''
+        const res = await fetch(`${API_BASE}/wait-times${q}`)
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          const detail = err.detail
+          const msg =
+            typeof detail === 'string'
+              ? detail
+              : Array.isArray(detail)
+                ? detail.map((d) => d.msg || d).join(', ')
+                : res.statusText
+          throw new Error(msg || 'Failed to load waits')
+        }
+        const data = await res.json()
+        setWaitTimesData(data)
+      } catch (e) {
+        setWaitTimesError(e.message || 'Could not load wait times')
+      } finally {
+        setWaitTimesLoading(false)
+      }
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!showTripForm) {
+      fetchWaitTimes(false)
+    }
+  }, [showTripForm, fetchWaitTimes])
+
   function handleTripSubmit(payload) {
     const { saveTripData: optIn, ...trip } = payload
     setTripInfo(trip)
@@ -212,6 +251,9 @@ export default function App() {
       }
       if (tripInfo) {
         body.trip_info = toTripInfoPayload(tripInfo)
+      }
+      if (waitTimesData?.top10_shortest?.length) {
+        body.shortest_waits = waitTimesData.top10_shortest.slice(0, 10)
       }
       const headers = { 'Content-Type': 'application/json' }
       if (user?.token) headers.Authorization = `Bearer ${user.token}`
@@ -627,6 +669,77 @@ export default function App() {
 
         {tripInfo && !showTripForm && (
           <TripSummary trip={tripInfo} onEdit={() => setShowTripForm(true)} />
+        )}
+
+        {!showTripForm && (
+          <div className="wait-times-panel">
+            <button
+              type="button"
+              className="wait-times-panel__toggle"
+              onClick={() => setWaitPanelOpen((o) => !o)}
+              aria-expanded={waitPanelOpen}
+            >
+              <span className="wait-times-panel__toggle-label">
+                Walt Disney World wait times
+              </span>
+              <span className="wait-times-panel__chevron" aria-hidden>
+                {waitPanelOpen ? '▼' : '▶'}
+              </span>
+            </button>
+            {waitPanelOpen && (
+              <div className="wait-times-panel__body">
+                <div className="wait-times-panel__toolbar">
+                  <button
+                    type="button"
+                    className="wait-times-panel__refresh"
+                    onClick={() => fetchWaitTimes(true)}
+                    disabled={waitTimesLoading}
+                  >
+                    {waitTimesLoading ? 'Refreshing…' : 'Refresh'}
+                  </button>
+                  {waitTimesData?.cached && (
+                    <span className="wait-times-panel__meta">(cached)</span>
+                  )}
+                  {waitTimesData?.fetched_at && (
+                    <span className="wait-times-panel__meta">
+                      {new Date(waitTimesData.fetched_at).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                {waitTimesError && (
+                  <p className="wait-times-panel__error">{waitTimesError}</p>
+                )}
+                {waitTimesLoading && !waitTimesData && (
+                  <p className="wait-times-panel__loading">Loading waits…</p>
+                )}
+                {waitTimesData?.parks?.map((park) => (
+                  <div key={park.park_name} className="wait-times-park">
+                    <h3 className="wait-times-park__name">{park.park_name}</h3>
+                    <ul className="wait-times-park__list">
+                      {park.rides?.map((ride) => (
+                        <li key={`${park.park_name}-${ride.name}`}>
+                          <span className="wait-times-ride__name">{ride.name}</span>
+                          <span className="wait-times-ride__wait">
+                            {ride.wait_minutes != null
+                              ? `${ride.wait_minutes} min`
+                              : '—'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                {waitTimesData &&
+                  !waitTimesLoading &&
+                  (!waitTimesData.parks || waitTimesData.parks.length === 0) &&
+                  !waitTimesError && (
+                    <p className="wait-times-panel__empty">
+                      No standby waits reported right now.
+                    </p>
+                  )}
+              </div>
+            )}
+          </div>
         )}
 
         {!showTripForm && saveTripData && (

@@ -19,6 +19,17 @@ def test_health():
     assert response.json() == {"status": "ok"}
 
 
+def test_wait_times_endpoint():
+    """GET /wait-times returns parks + top10 (mocked upstream via conftest)."""
+    response = client.get("/wait-times")
+    assert response.status_code == 200
+    data = response.json()
+    assert "parks" in data
+    assert "top10_shortest" in data
+    assert "fetched_at" in data
+    assert "cached" in data
+
+
 def test_chat_empty_messages():
     response = client.post("/chat", json={"messages": []})
     assert response.status_code == 200

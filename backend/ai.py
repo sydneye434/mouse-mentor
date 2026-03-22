@@ -154,6 +154,7 @@ def generate_reply(
     messages: list[dict[str, str]],
     trip_info: Optional[dict[str, Any]] = None,
     use_web_search: bool = True,
+    wait_times_context: Optional[str] = None,
 ) -> str:
     """
     Generate an assistant reply using trip context and optional web search.
@@ -207,6 +208,8 @@ def generate_reply(
     ]
     if web_ctx:
         system_parts.extend(["\n\n", web_ctx])
+    if wait_times_context:
+        system_parts.extend(["\n\n", wait_times_context])
     system_content = "".join(system_parts)
 
     openai_messages = []

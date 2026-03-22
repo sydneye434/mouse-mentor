@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import auth
 import env  # noqa: F401  # load .env before database/auth read os.environ
 import store
+import wait_times
 from ai import generate_reply as ai_generate_reply
 from database import get_session, init_db
 
@@ -147,10 +148,19 @@ class TripInfo(BaseModel):
     dietary_notes: Optional[str] = None
 
 
+class ShortestWaitItem(BaseModel):
+    """Top shortest waits (e.g. from /wait-times) passed for AI context."""
+
+    name: str
+    wait_minutes: int
+    park_name: str
+
+
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     trip_info: Optional[TripInfo] = None
     save_trip: bool = False
+    shortest_waits: Optional[list[ShortestWaitItem]] = None
 
 
 class ChatResponse(BaseModel):
@@ -160,6 +170,18 @@ class ChatResponse(BaseModel):
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/wait-times")
+async def get_wait_times(refresh: bool = False):
+    """Real-time WDW standby waits (ThemeParks Wiki), cached 5 minutes."""
+    try:
+        return await wait_times.get_wait_times_response(force_refresh=refresh)
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not load wait times: {e!s}",
+        ) from e
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -185,10 +207,24 @@ async def chat(
     if last and last.text.strip():
         messages_payload = [{"role": m.role, "text": m.text} for m in request.messages]
         trip_dict = trip.model_dump() if trip else None
+
+        wait_list: list[dict] = []
+        if request.shortest_waits:
+            wait_list = [w.model_dump() for w in request.shortest_waits]
+        else:
+            try:
+                wt = await wait_times.get_wait_times_response()
+                wait_list = wt.get("top10_shortest") or []
+            except Exception:
+                wait_list = []
+
+        wait_ctx = wait_times.format_shortest_waits_for_ai(wait_list) or None
+
         reply = ai_generate_reply(
             messages=messages_payload,
             trip_info=trip_dict,
             use_web_search=True,
+            wait_times_context=wait_ctx,
         )
     else:
         reply = "Share your trip details above, then ask about parks, hotels, dining, or dates."

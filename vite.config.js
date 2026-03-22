@@ -13,6 +13,7 @@ export default defineConfig({
       '/chat': { target: 'http://localhost:8000', changeOrigin: true },
       '/trip': { target: 'http://localhost:8000', changeOrigin: true },
       '/health': { target: 'http://localhost:8000', changeOrigin: true },
+      '/wait-times': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
   test: {
