@@ -123,6 +123,34 @@ describe('App', () => {
               }),
           })
         }
+        if (typeof url === 'string' && url.includes('/wait-times')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                parks: [],
+                top10_shortest: [
+                  {
+                    name: 'Test Ride',
+                    wait_minutes: 15,
+                    park_name: 'Magic Kingdom',
+                  },
+                ],
+                fetched_at: new Date().toISOString(),
+                cached: false,
+              }),
+          })
+        }
+        if (
+          typeof url === 'string' &&
+          url.endsWith('/trip') &&
+          (!opts?.method || opts.method === 'GET')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ trip: null }),
+          })
+        }
         return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
       })
     )
@@ -143,10 +171,15 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: /sign out/i })
     ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^hub$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^guide$/i })).toBeInTheDocument()
     await waitFor(() => {
       expect(
         screen.queryByRole('heading', { name: /create account/i })
       ).not.toBeInTheDocument()
     })
+    await user.click(screen.getByRole('button', { name: /skip for now/i }))
+    await screen.findByText(/welcome back/i)
+    expect(screen.getByText(/today's shortest waits/i)).toBeInTheDocument()
   })
 })

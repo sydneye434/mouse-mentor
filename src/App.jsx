@@ -8,6 +8,7 @@ import MickeyIcon from './MickeyIcon.jsx'
 import MickeyEarAvatar from './components/MickeyEarAvatar.jsx'
 import { TextField } from './ui'
 import GetToKnowYou from './components/GetToKnowYou.jsx'
+import DashboardHome from './components/DashboardHome.jsx'
 import TripSummary from './components/TripSummary.jsx'
 import AuthModal from './components/AuthModal.jsx'
 import PaywallModal from './components/PaywallModal.jsx'
@@ -19,6 +20,7 @@ const API_BASE =
   (import.meta.env.DEV ? '' : 'http://localhost:8000')
 const AUTH_STORAGE_KEY = 'mouse-mentor-auth'
 const THEME_STORAGE_KEY = 'mouse-mentor-theme'
+const SCREEN_STORAGE_KEY = 'mouse-mentor-screen'
 
 function getStoredTheme() {
   try {
@@ -68,6 +70,17 @@ function setStoredUser(user) {
       }
     }
   } catch (_) {}
+}
+
+/** Logged-in users: persist hub vs guide; guests always use chat layout. */
+function getInitialAppScreen() {
+  try {
+    const u = getStoredUser()
+    if (!u) return 'chat'
+    const s = localStorage.getItem(SCREEN_STORAGE_KEY)
+    if (s === 'hub' || s === 'chat') return s
+  } catch {}
+  return 'hub'
 }
 
 /** Map backend snake_case trip to frontend camelCase */
@@ -141,6 +154,7 @@ export default function App() {
   const [clearingChat, setClearingChat] = useState(false)
   const [showPaywall, setShowPaywall] = useState(false)
   const [paywallFeature, setPaywallFeature] = useState('export')
+  const [appScreen, setAppScreen] = useState(getInitialAppScreen)
   const checkoutHandledRef = useRef(false)
   const chatHistoryLoadedRef = useRef(false)
   const messagesEndRef = useRef(null)
@@ -215,11 +229,33 @@ export default function App() {
   function handleAuthSuccess(authUser) {
     setUser(authUser)
     setStoredUser(authUser)
+    setAppScreen('hub')
+    try {
+      localStorage.setItem(SCREEN_STORAGE_KEY, 'hub')
+    } catch {}
   }
+
+  const goToHub = useCallback(() => {
+    setAppScreen('hub')
+    try {
+      localStorage.setItem(SCREEN_STORAGE_KEY, 'hub')
+    } catch {}
+  }, [])
+
+  const goToChat = useCallback(() => {
+    setAppScreen('chat')
+    try {
+      localStorage.setItem(SCREEN_STORAGE_KEY, 'chat')
+    } catch {}
+  }, [])
 
   const handleLogout = useCallback(() => {
     setUser(null)
     setStoredUser(null)
+    try {
+      localStorage.removeItem(SCREEN_STORAGE_KEY)
+    } catch {}
+    setAppScreen('chat')
     setSaveTripData(false)
     setShowDeleteConfirm(false)
     setDeleteConfirmChecked(false)
@@ -660,6 +696,21 @@ export default function App() {
     )
   }
 
+  function handleItineraryFromHub() {
+    if (!user?.token) {
+      setShowAuthModal(true)
+      return
+    }
+    if (!user.is_pro) {
+      setPaywallFeature('export')
+      setShowPaywall(true)
+      return
+    }
+    goToChat()
+  }
+
+  const showHub = !!(user && appScreen === 'hub')
+
   return (
     <div className="app">
       {theme === 'light' && (
@@ -980,12 +1031,35 @@ export default function App() {
               />
               <h1 className="logo">Mouse Mentor</h1>
             </div>
-            <a
-              href="#chat-main"
-              className="header__nav-link header__nav-link--active"
-            >
-              Plan
-            </a>
+            {user ? (
+              <div className="flex shrink-0 items-center gap-4">
+                <button
+                  type="button"
+                  className={`header__nav-link ${
+                    showHub ? 'header__nav-link--active' : ''
+                  }`}
+                  onClick={goToHub}
+                >
+                  Hub
+                </button>
+                <button
+                  type="button"
+                  className={`header__nav-link ${
+                    !showHub ? 'header__nav-link--active' : ''
+                  }`}
+                  onClick={goToChat}
+                >
+                  Guide
+                </button>
+              </div>
+            ) : (
+              <a
+                href="#chat-main"
+                className="header__nav-link header__nav-link--active"
+              >
+                Plan
+              </a>
+            )}
           </nav>
           <div className="header__auth">
             <button
@@ -1053,11 +1127,26 @@ export default function App() {
           />
         )}
 
-        {tripInfo && !showTripForm && (
+        {showHub && !showTripForm && (
+          <DashboardHome
+            tripInfo={tripInfo}
+            user={user}
+            waitTimesData={waitTimesData}
+            waitTimesLoading={waitTimesLoading}
+            waitTimesError={waitTimesError}
+            onRefreshWaits={fetchWaitTimes}
+            onAskGuide={goToChat}
+            onItineraryPreview={handleItineraryFromHub}
+            onPlanTrip={() => setShowTripForm(true)}
+            onEditTrip={() => setShowTripForm(true)}
+          />
+        )}
+
+        {!showHub && tripInfo && !showTripForm && (
           <TripSummary trip={tripInfo} onEdit={() => setShowTripForm(true)} />
         )}
 
-        {!showTripForm && (
+        {!showHub && !showTripForm && (
           <div className="wait-times-panel">
             <button
               type="button"
@@ -1130,7 +1219,7 @@ export default function App() {
           </div>
         )}
 
-        {!showTripForm && saveTripData && (
+        {!showHub && !showTripForm && saveTripData && (
           <div
             className="save-notice"
             role="region"
@@ -1198,6 +1287,7 @@ export default function App() {
           </div>
         )}
 
+        {!showHub && (
         <div className="messages flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-1">
           {messages.length === 0 && !showTripForm && (
             <div className="flex min-h-[16rem] flex-col items-center justify-center px-4 text-center text-[var(--color-text-muted)]">
@@ -1259,8 +1349,9 @@ export default function App() {
           )}
           <div ref={messagesEndRef} aria-hidden />
         </div>
+        )}
 
-        {!showTripForm && messages.length > 0 && (
+        {!showHub && !showTripForm && messages.length > 0 && (
           <div className="export-itinerary-row">
             <button
               type="button"
@@ -1296,7 +1387,7 @@ export default function App() {
           </div>
         )}
 
-        {!showTripForm && (
+        {!showHub && !showTripForm && (
           <form
             className="input-area mt-2 flex shrink-0 gap-2 border-t border-[var(--color-border)] pt-4"
             onSubmit={handleSubmit}

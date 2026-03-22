@@ -80,6 +80,13 @@
   border-bottom-color: var(--color-pink-mid);
 }
 
+button.header__nav-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
 .header__auth {
   display: flex;
   align-items: center;
