@@ -25,6 +25,11 @@ GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 
+# Fast/cheap model for summarizing older chat (defaults to main Groq model)
+SUMMARY_MODEL = os.environ.get("SUMMARY_MODEL", GROQ_MODEL)
+# Keep this many recent messages verbatim; summarize everything before that
+CHAT_HISTORY_WINDOW = int(os.environ.get("CHAT_HISTORY_WINDOW", "10"))
+
 
 def _trip_context(trip: Optional[dict[str, Any]]) -> str:
     """Build a short context string from trip info."""
@@ -110,6 +115,7 @@ def _build_system_and_messages(
     trip_info: Optional[dict[str, Any]],
     use_web_search: bool,
     wait_times_context: Optional[str],
+    conversation_summary: Optional[str] = None,
 ) -> tuple[str, list[dict[str, str]]]:
     """System prompt + OpenAI-format chat messages."""
     trip_ctx = _trip_context(trip_info)
@@ -149,6 +155,13 @@ def _build_system_and_messages(
         system_parts.extend(["\n\n", web_ctx])
     if wait_times_context:
         system_parts.extend(["\n\n", wait_times_context])
+    if conversation_summary:
+        system_parts.extend(
+            [
+                "\n\nEarlier conversation summary (for continuity; guest may refer to these topics):\n",
+                conversation_summary,
+            ]
+        )
     system_content = "".join(system_parts)
 
     openai_messages = []
@@ -159,6 +172,80 @@ def _build_system_and_messages(
             openai_messages.append({"role": role, "content": text})
 
     return system_content, openai_messages
+
+
+def summarize_conversation_messages(messages: list[dict[str, str]]) -> str:
+    """
+    Compress older chat turns into a short summary (cheap LLM call).
+    Used when the transcript exceeds CHAT_HISTORY_WINDOW messages.
+    """
+    if not messages:
+        return ""
+
+    lines = []
+    for m in messages:
+        role = m.get("role")
+        text = (m.get("text") or "").strip()
+        if not text:
+            continue
+        who = "Guest" if role == "user" else "Assistant"
+        lines.append(f"{who}: {text}")
+    transcript = "\n\n".join(lines)
+    if len(transcript) > 14000:
+        transcript = transcript[:14000] + "\n\n[... truncated for summarization ...]"
+
+    prompt = (
+        "Summarize this Disney trip planning chat in 6–12 bullet points or short paragraphs. "
+        "Capture parks mentioned, dates, dining, priorities, decisions, and open questions. "
+        "Be factual and concise. Do not add new advice.\n\n---\n\n"
+        f"{transcript}"
+    )
+
+    if AI_PROVIDER == "groq" and GROQ_API_KEY:
+        from openai import OpenAI
+
+        client = OpenAI(
+            base_url="https://api.groq.com/openai/v1",
+            api_key=GROQ_API_KEY,
+        )
+        resp = client.chat.completions.create(
+            model=SUMMARY_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You compress chat logs for a travel assistant. Output plain text only.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=512,
+            temperature=0.2,
+        )
+        return (resp.choices[0].message.content or "").strip()
+
+    if AI_PROVIDER == "gemini" and GEMINI_API_KEY:
+        from google import genai
+        from google.genai.types import Content, GenerateContentConfig, Part
+
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        resp = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=[
+                Content(
+                    role="user",
+                    parts=[Part(text=prompt)],
+                )
+            ],
+            config=GenerateContentConfig(
+                system_instruction=(
+                    "You compress chat logs for a travel assistant. Output plain text only."
+                ),
+                max_output_tokens=512,
+                temperature=0.2,
+            ),
+        )
+        return (resp.text or "").strip()
+
+    return transcript[:2000] + ("\n..." if len(transcript) > 2000 else "")
 
 
 async def _stream_groq(
@@ -245,6 +332,7 @@ async def stream_reply(
     trip_info: Optional[dict[str, Any]] = None,
     use_web_search: bool = True,
     wait_times_context: Optional[str] = None,
+    conversation_summary: Optional[str] = None,
 ) -> AsyncIterator[str]:
     """
     Stream assistant reply as text chunks (tokens / fragments).
@@ -264,7 +352,11 @@ async def stream_reply(
         return
 
     system_content, openai_messages = _build_system_and_messages(
-        messages, trip_info, use_web_search, wait_times_context
+        messages,
+        trip_info,
+        use_web_search,
+        wait_times_context,
+        conversation_summary,
     )
 
     try:
@@ -285,6 +377,7 @@ def generate_reply(
     trip_info: Optional[dict[str, Any]] = None,
     use_web_search: bool = True,
     wait_times_context: Optional[str] = None,
+    conversation_summary: Optional[str] = None,
 ) -> str:
     """
     Non-streaming full reply (collects stream). Useful for tests or scripts.
@@ -293,7 +386,11 @@ def generate_reply(
     async def _collect() -> str:
         parts: list[str] = []
         async for t in stream_reply(
-            messages, trip_info, use_web_search, wait_times_context
+            messages,
+            trip_info,
+            use_web_search,
+            wait_times_context,
+            conversation_summary,
         ):
             parts.append(t)
         return "".join(parts).strip()

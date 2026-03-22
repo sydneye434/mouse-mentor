@@ -647,6 +647,37 @@
   color: #b83232;
 }
 
+.clear-conversation-btn {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.clear-conversation-btn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--castle-light);
+  background: rgba(168, 212, 240, 0.15);
+}
+
+.clear-conversation-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+html[data-theme='dark'] .clear-conversation-btn:hover:not(:disabled) {
+  background: rgba(91, 143, 185, 0.15);
+}
+
 html[data-theme='dark'] .export-itinerary-btn {
   background: rgba(91, 143, 185, 0.22);
   color: var(--ink);

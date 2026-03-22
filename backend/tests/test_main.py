@@ -144,6 +144,47 @@ def test_export_requires_messages():
     assert response.status_code == 400
 
 
+def test_get_messages_empty_when_logged_in():
+    token = get_auth_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    client.delete("/messages", headers=headers)
+    response = client.get("/messages", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == {"messages": []}
+
+
+async def _stream_hi(*args, **kwargs):
+    yield "Hi there"
+
+
+@patch("main.ai_stream_reply", side_effect=_stream_hi)
+def test_chat_persists_messages_when_save_trip(mock_stream):
+    token = get_auth_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    client.delete("/messages", headers=headers)
+    r = client.post(
+        "/chat",
+        json={
+            "messages": [{"role": "user", "text": "Hello"}],
+            "trip_info": {"destination": "disney-world"},
+            "save_trip": True,
+        },
+        headers=headers,
+    )
+    assert r.status_code == 200
+    _ = r.text
+    loaded = client.get("/messages", headers=headers)
+    assert loaded.status_code == 200
+    msgs = loaded.json()["messages"]
+    assert len(msgs) == 2
+    assert msgs[0]["role"] == "user"
+    assert msgs[0]["text"] == "Hello"
+    assert msgs[1]["role"] == "assistant"
+    assert "Hi there" in msgs[1]["text"]
+    mock_stream.assert_called_once()
+    client.delete("/messages", headers=headers)
+
+
 @patch("main.itinerary_export.build_itinerary_pdf", return_value=b"%PDF-1.4\n")
 @patch(
     "main.itinerary_export.extract_itinerary_json",
@@ -164,6 +205,16 @@ def test_export_returns_pdf(mock_extract, mock_build):
 
 def test_get_trip_requires_auth():
     response = client.get("/trip")
+    assert response.status_code == 401
+
+
+def test_get_messages_requires_auth():
+    response = client.get("/messages")
+    assert response.status_code == 401
+
+
+def test_clear_messages_requires_auth():
+    response = client.delete("/messages")
     assert response.status_code == 401
 
 

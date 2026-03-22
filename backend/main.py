@@ -22,8 +22,14 @@ import env  # noqa: F401  # load .env before database/auth read os.environ
 import itinerary_export
 import store
 import wait_times
-from ai import stream_reply as ai_stream_reply
-from database import get_session, init_db
+from ai import (
+    CHAT_HISTORY_WINDOW,
+    summarize_conversation_messages,
+)
+from ai import (
+    stream_reply as ai_stream_reply,
+)
+from database import async_session_maker, get_session, init_db
 
 
 def _cors_origins() -> List[str]:
@@ -212,11 +218,29 @@ async def chat(
         await store.save_trip(session, user_id, request.trip_info.model_dump())
     elif not request.save_trip and user_id is not None:
         await store.delete_trip(session, user_id)
+        await store.clear_chat_messages(session, user_id)
 
     last = request.messages[-1] if request.messages else None
     trip = request.trip_info
 
+    messages_payload = [{"role": m.role, "text": m.text} for m in request.messages]
+    conv_summary: Optional[str] = None
+    messages_for_llm = messages_payload
+    if last and last.text.strip() and len(messages_payload) > CHAT_HISTORY_WINDOW:
+        older = messages_payload[:-CHAT_HISTORY_WINDOW]
+        messages_for_llm = messages_payload[-CHAT_HISTORY_WINDOW:]
+        try:
+            conv_summary = await asyncio.to_thread(
+                summarize_conversation_messages, older
+            )
+        except Exception:
+            conv_summary = None
+
+    persist_messages = user_id is not None and request.save_trip
+
     async def event_generator():
+        full_reply: list[str] = []
+        completion_ok = False
         try:
             if not last or not last.text.strip():
                 static = "Share your trip details above, then ask about parks, hotels, dining, or dates."
@@ -224,9 +248,6 @@ async def chat(
                 yield _sse_data({"type": "done"})
                 return
 
-            messages_payload = [
-                {"role": m.role, "text": m.text} for m in request.messages
-            ]
             trip_dict = trip.model_dump() if trip else None
 
             wait_list: list[dict] = []
@@ -242,16 +263,37 @@ async def chat(
             wait_ctx = wait_times.format_shortest_waits_for_ai(wait_list) or None
 
             async for token in ai_stream_reply(
-                messages=messages_payload,
+                messages=messages_for_llm,
                 trip_info=trip_dict,
                 use_web_search=True,
                 wait_times_context=wait_ctx,
+                conversation_summary=conv_summary,
             ):
                 if token:
+                    full_reply.append(token)
                     yield _sse_data({"type": "token", "text": token})
             yield _sse_data({"type": "done"})
+            completion_ok = True
         except Exception as e:
             yield _sse_data({"type": "error", "message": str(e)})
+        finally:
+            if (
+                persist_messages
+                and user_id is not None
+                and completion_ok
+                and full_reply
+            ):
+                text = "".join(full_reply)
+                try:
+                    async with async_session_maker() as session:
+                        msgs = [
+                            {"role": m.role, "text": m.text} for m in request.messages
+                        ]
+                        msgs.append({"role": "assistant", "text": text})
+                        await store.set_chat_messages(session, user_id, msgs)
+                        await session.commit()
+                except Exception:
+                    pass
 
     return StreamingResponse(
         event_generator(),
@@ -308,6 +350,28 @@ async def export_itinerary_pdf(request: ExportRequest):
     )
 
 
+@app.get("/messages")
+async def get_saved_messages(
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Load persisted chat history (users who save trip + chat data)."""
+    rows = await store.get_chat_messages(session, user_id)
+    return {
+        "messages": [{"id": str(r.id), "role": r.role, "text": r.text} for r in rows]
+    }
+
+
+@app.delete("/messages")
+async def clear_saved_messages(
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Clear stored chat history for the current user."""
+    await store.clear_chat_messages(session, user_id)
+    return {"cleared": True}
+
+
 @app.get("/trip")
 async def get_saved_trip(
     user_id: int = Depends(require_user),
@@ -323,6 +387,7 @@ async def delete_saved_trip(
     session: AsyncSession = Depends(get_session),
 ):
     await store.delete_trip(session, user_id)
+    await store.clear_chat_messages(session, user_id)
     return {"deleted": True}
 
 

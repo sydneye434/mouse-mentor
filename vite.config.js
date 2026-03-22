@@ -15,6 +15,7 @@ export default defineConfig({
       '/health': { target: 'http://localhost:8000', changeOrigin: true },
       '/wait-times': { target: 'http://localhost:8000', changeOrigin: true },
       '/export': { target: 'http://localhost:8000', changeOrigin: true },
+      '/messages': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
   test: {

@@ -7,10 +7,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import SavedTrip
+from models import SavedTrip, StoredChatMessage
 
 
 async def save_trip(
@@ -44,4 +44,45 @@ async def delete_trip(session: AsyncSession, user_id: int) -> None:
     row = result.scalar_one_or_none()
     if row is not None:
         await session.delete(row)
+    await session.flush()
+
+
+async def set_chat_messages(
+    session: AsyncSession, user_id: int, messages: list[dict[str, str]]
+) -> None:
+    """Replace all chat messages for the user with the given list (ordered)."""
+    await session.execute(
+        delete(StoredChatMessage).where(StoredChatMessage.user_id == user_id)
+    )
+    for seq, m in enumerate(messages):
+        role = m.get("role", "")
+        text = m.get("text", "")
+        if role not in ("user", "assistant") or not text.strip():
+            continue
+        session.add(
+            StoredChatMessage(
+                user_id=user_id,
+                role=role,
+                text=text,
+                seq=seq,
+            )
+        )
+    await session.flush()
+
+
+async def get_chat_messages(
+    session: AsyncSession, user_id: int
+) -> list[StoredChatMessage]:
+    result = await session.execute(
+        select(StoredChatMessage)
+        .where(StoredChatMessage.user_id == user_id)
+        .order_by(StoredChatMessage.seq.asc())
+    )
+    return list(result.scalars().all())
+
+
+async def clear_chat_messages(session: AsyncSession, user_id: int) -> None:
+    await session.execute(
+        delete(StoredChatMessage).where(StoredChatMessage.user_id == user_id)
+    )
     await session.flush()

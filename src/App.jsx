@@ -112,6 +112,8 @@ export default function App() {
   const [waitTimesError, setWaitTimesError] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState(null)
+  const [clearingChat, setClearingChat] = useState(false)
+  const chatHistoryLoadedRef = useRef(false)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -135,13 +137,15 @@ export default function App() {
     setStoredUser(authUser)
   }
 
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     setUser(null)
     setStoredUser(null)
     setSaveTripData(false)
     setShowDeleteConfirm(false)
     setDeleteConfirmChecked(false)
-  }
+    setMessages([])
+    chatHistoryLoadedRef.current = false
+  }, [])
 
   const loadSavedTrip = useCallback(async () => {
     if (!user?.token) return
@@ -163,11 +167,51 @@ export default function App() {
     } catch {
       // ignore
     }
-  }, [user?.token])
+  }, [user?.token, handleLogout])
 
   useEffect(() => {
     loadSavedTrip()
   }, [loadSavedTrip])
+
+  const loadChatHistory = useCallback(async () => {
+    if (!user?.token || !saveTripData) return
+    try {
+      const res = await fetch(`${API_BASE}/messages`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      if (res.status === 401) {
+        handleLogout()
+        return
+      }
+      if (!res.ok) return
+      const data = await res.json()
+      const rows = data.messages || []
+      if (rows.length) {
+        setMessages(
+          rows.map((m) => ({
+            id: String(m.id),
+            role: m.role,
+            text: m.text,
+          }))
+        )
+      }
+    } catch {
+      // ignore
+    }
+  }, [user?.token, saveTripData, handleLogout])
+
+  useEffect(() => {
+    if (!saveTripData) {
+      chatHistoryLoadedRef.current = false
+    }
+  }, [saveTripData])
+
+  useEffect(() => {
+    if (!user?.token || !saveTripData || showTripForm) return
+    if (chatHistoryLoadedRef.current) return
+    chatHistoryLoadedRef.current = true
+    loadChatHistory()
+  }, [user?.token, saveTripData, showTripForm, loadChatHistory])
 
   const fetchWaitTimes = useCallback(async (refresh = false) => {
     setWaitTimesLoading(true)
@@ -223,6 +267,8 @@ export default function App() {
         setSaveTripData(false)
         setShowDeleteConfirm(false)
         setDeleteConfirmChecked(false)
+        setMessages([])
+        chatHistoryLoadedRef.current = false
       }
     } finally {
       setDeleting(false)
@@ -400,6 +446,35 @@ export default function App() {
       )
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleClearConversation() {
+    if (!user?.token || !saveTripData || clearingChat) return
+    setClearingChat(true)
+    setExportError(null)
+    try {
+      const res = await fetch(`${API_BASE}/messages`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      if (res.status === 401) {
+        handleLogout()
+        return
+      }
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        throw new Error(
+          typeof errJson.detail === 'string'
+            ? errJson.detail
+            : 'Could not clear conversation'
+        )
+      }
+      setMessages([])
+    } catch (e) {
+      setExportError(e.message || 'Could not clear conversation.')
+    } finally {
+      setClearingChat(false)
     }
   }
 
@@ -1007,10 +1082,20 @@ export default function App() {
               type="button"
               className="export-itinerary-btn"
               onClick={handleExportItinerary}
-              disabled={loading || exporting}
+              disabled={loading || exporting || clearingChat}
             >
               {exporting ? 'Exporting…' : 'Export Itinerary'}
             </button>
+            {user?.token && saveTripData && (
+              <button
+                type="button"
+                className="clear-conversation-btn"
+                onClick={handleClearConversation}
+                disabled={loading || exporting || clearingChat}
+              >
+                {clearingChat ? 'Clearing…' : 'Clear conversation'}
+              </button>
+            )}
             {exportError && (
               <span className="export-itinerary-error" role="alert">
                 {exportError}
