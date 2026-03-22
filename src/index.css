@@ -1,3 +1,5 @@
+@import 'tailwindcss';
+
 /* Developed by Sydney Edwards — Fantasyland-inspired design tokens (single source of truth) */
 :root {
   --color-bg-page: #fef8fb;
@@ -126,6 +128,11 @@ h3 {
   font-family: 'Playfair Display', serif;
   color: var(--color-text-heading);
   font-weight: 600;
+}
+
+/* Tailwind-friendly heading utility (wizard step titles) */
+.font-display {
+  font-family: 'Playfair Display', serif;
 }
 
 #root {

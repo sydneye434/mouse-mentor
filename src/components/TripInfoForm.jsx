@@ -8,7 +8,7 @@ import {
   CHILD_AGE_RANGE_OPTIONS,
   PRIORITY_OPTIONS,
 } from '../tripInfo'
-import './TripInfoForm.css'
+import { TextField, SelectField, CheckboxField, Button } from '../ui'
 
 const today = () => {
   const d = new Date()
@@ -93,136 +93,130 @@ export default function TripInfoForm({ initialTrip, onSubmit }) {
   }
 
   return (
-    <form className="trip-info-form" onSubmit={handleSubmit}>
-      <h2 className="trip-info-form__title">Tell us about your trip</h2>
-      <p className="trip-info-form__hint">
+    <form
+      className="mb-4 max-w-md rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-5"
+      onSubmit={handleSubmit}
+    >
+      <h2 className="font-display text-lg font-semibold text-[var(--color-text-heading)]">
+        Tell us about your trip
+      </h2>
+      <p className="mb-4 text-sm text-[var(--color-text-muted)]">
         Share the basics so we can give you personalized advice.
       </p>
 
-      <label className="trip-info-form__label">
-        Destination
-        <select
-          className="trip-info-form__select"
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-          required
-        >
-          {DESTINATIONS.map((d) => (
-            <option key={d.value} value={d.value}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectField
+        label="Destination"
+        value={destination}
+        onChange={(e) => setDestination(e.target.value)}
+        required
+      >
+        {DESTINATIONS.map((d) => (
+          <option key={d.value} value={d.value}>
+            {d.label}
+          </option>
+        ))}
+      </SelectField>
 
-      <label className="trip-info-form__label trip-info-form__label--checkbox">
-        <input
-          type="checkbox"
+      <div className="mb-4">
+        <CheckboxField
           checked={datesFlexible}
           onChange={(e) => setDatesFlexible(e.target.checked)}
-        />
-        My dates are flexible
-      </label>
+        >
+          My dates are flexible
+        </CheckboxField>
+      </div>
 
       {!datesFlexible && (
-        <div className="trip-info-form__row">
-          <label className="trip-info-form__label">
-            Arrival date
-            <input
-              type="date"
-              className="trip-info-form__input"
-              value={arrivalDate}
-              onChange={(e) => setArrivalDate(e.target.value)}
-              min={today()}
-            />
-          </label>
-          <label className="trip-info-form__label">
-            Departure date
-            <input
-              type="date"
-              className="trip-info-form__input"
-              value={departureDate}
-              onChange={(e) => setDepartureDate(e.target.value)}
-              min={arrivalDate || today()}
-            />
-          </label>
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row">
+          <TextField
+            className="min-w-0 flex-1"
+            label="Arrival date"
+            type="date"
+            value={arrivalDate}
+            onChange={(e) => setArrivalDate(e.target.value)}
+            min={today()}
+          />
+          <TextField
+            className="min-w-0 flex-1"
+            label="Departure date"
+            type="date"
+            value={departureDate}
+            onChange={(e) => setDepartureDate(e.target.value)}
+            min={arrivalDate || today()}
+          />
         </div>
       )}
 
-      <div className="trip-info-form__row">
-        <label className="trip-info-form__label">
-          Adults
-          <input
-            type="number"
-            className="trip-info-form__input trip-info-form__input--number"
-            min={1}
-            max={20}
-            value={numberOfAdults}
-            onChange={(e) => setNumberOfAdults(e.target.value)}
-          />
-        </label>
-        <label className="trip-info-form__label">
-          Children
-          <input
-            type="number"
-            className="trip-info-form__input trip-info-form__input--number"
-            min={0}
-            max={20}
-            value={numberOfChildren}
-            onChange={(e) => setNumberOfChildren(e.target.value)}
-          />
-        </label>
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row">
+        <TextField
+          className="min-w-0 flex-1"
+          label="Adults"
+          type="number"
+          min={1}
+          max={20}
+          inputClassName="max-w-[6rem]"
+          value={numberOfAdults}
+          onChange={(e) => setNumberOfAdults(e.target.value)}
+        />
+        <TextField
+          className="min-w-0 flex-1"
+          label="Children"
+          type="number"
+          min={0}
+          max={20}
+          inputClassName="max-w-[6rem]"
+          value={numberOfChildren}
+          onChange={(e) => setNumberOfChildren(e.target.value)}
+        />
       </div>
 
       {numChildren > 0 && (
-        <div className="trip-info-form__child-ages">
-          <span className="trip-info-form__label">Ages of children</span>
-          <div className="trip-info-form__child-ages-inputs">
+        <div className="mb-4">
+          <span className="mb-2 block text-xs font-medium text-[var(--color-text-muted)]">
+            Ages of children
+          </span>
+          <div className="flex flex-wrap gap-4">
             {childAges.slice(0, numChildren).map((ageRange, i) => (
-              <label key={i} className="trip-info-form__label">
-                Child {i + 1}
-                <select
-                  className="trip-info-form__select trip-info-form__select--inline"
-                  value={ageRange === '' ? '' : ageRange}
-                  onChange={(e) => handleChildAgeChange(i, e.target.value)}
-                >
-                  <option value="">Select age range…</option>
-                  {CHILD_AGE_RANGE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SelectField
+                key={i}
+                className="min-w-[10rem] flex-1"
+                label={`Child ${i + 1}`}
+                selectClassName="min-w-[9rem]"
+                value={ageRange === '' ? '' : ageRange}
+                onChange={(e) => handleChildAgeChange(i, e.target.value)}
+              >
+                <option value="">Select age range…</option>
+                {CHILD_AGE_RANGE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </SelectField>
             ))}
           </div>
         </div>
       )}
 
-      <fieldset className="trip-info-form__priorities">
-        <legend className="trip-info-form__label">
+      <fieldset className="mb-4 border-0 p-0">
+        <legend className="mb-2 block text-xs font-medium text-[var(--color-text-muted)]">
           What do you want to prioritize? (pick any)
         </legend>
-        <div className="trip-info-form__priorities-grid">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {PRIORITY_OPTIONS.map((o) => (
-            <label
+            <CheckboxField
               key={o.value}
-              className="trip-info-form__label trip-info-form__label--checkbox"
+              checked={priorities.includes(o.value)}
+              onChange={() => handlePriorityChange(o.value)}
             >
-              <input
-                type="checkbox"
-                checked={priorities.includes(o.value)}
-                onChange={() => handlePriorityChange(o.value)}
-              />
               {o.label}
-            </label>
+            </CheckboxField>
           ))}
         </div>
       </fieldset>
 
-      <button type="submit" className="trip-info-form__submit">
+      <Button type="submit" className="w-full sm:w-auto">
         Save trip details
-      </button>
+      </Button>
     </form>
   )
 }

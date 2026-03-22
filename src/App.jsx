@@ -5,6 +5,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Wand2 } from 'lucide-react'
 import MickeyIcon from './MickeyIcon.jsx'
+import MickeyEarAvatar from './components/MickeyEarAvatar.jsx'
+import { TextField } from './ui'
 import GetToKnowYou from './components/GetToKnowYou.jsx'
 import TripSummary from './components/TripSummary.jsx'
 import AuthModal from './components/AuthModal.jsx'
@@ -1174,33 +1176,65 @@ export default function App() {
           </div>
         )}
 
-        <div className="messages">
+        <div className="messages flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-1">
           {messages.length === 0 && !showTripForm && (
-            <div className="empty-state">
-              <MickeyIcon className="empty-state-icon" size={44} />
-              <p>Ask me anything about your Disney adventure.</p>
-              <p className="empty-hint">
+            <div className="flex min-h-[16rem] flex-col items-center justify-center px-4 text-center text-[var(--color-text-muted)]">
+              <MickeyIcon className="empty-state-icon mb-5" size={44} />
+              <p className="m-0 text-base leading-relaxed">
+                Ask me anything about your Disney adventure.
+              </p>
+              <p className="mt-2 max-w-sm text-sm opacity-90">
                 Parks, resorts, dining & more—I’ll use your trip details to make
                 it magical.
               </p>
             </div>
           )}
           {messages.length === 0 && showTripForm && (
-            <div className="empty-state empty-state--minimal">
-              <p className="empty-hint">
+            <div className="flex min-h-[6rem] flex-col items-center justify-center px-4 text-center text-sm text-[var(--color-text-muted)]">
+              <p className="m-0 max-w-sm">
                 Answer a few quick questions so we can make your visit
                 magical—or skip to start chatting.
               </p>
             </div>
           )}
-          {messages.map((msg) => (
-            <div key={msg.id} className={`message message--${msg.role}`}>
-              <span className="message-role">
-                {msg.role === 'user' ? 'You' : 'Assistant'}
-              </span>
-              <p className="message-text">{msg.text}</p>
-            </div>
-          ))}
+          {messages.map((msg) =>
+            msg.role === 'user' ? (
+              <div
+                key={msg.id}
+                className="flex max-w-[min(88%,32rem)] flex-col self-end"
+              >
+                <div
+                  className="bg-[var(--color-lilac-strong)] px-4 py-3 text-[var(--color-text-on-primary)] shadow-sm"
+                  style={{ borderRadius: 'var(--radius-msg-user)' }}
+                >
+                  <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-white/80">
+                    You
+                  </span>
+                  <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                    {msg.text}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div
+                key={msg.id}
+                className="flex max-w-[min(92%,36rem)] flex-row items-end gap-2 self-start"
+              >
+                <MickeyEarAvatar size={36} />
+                <div
+                  className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-lilac-light)] px-4 py-3 shadow-sm ring-1 ring-[var(--color-border)]/80"
+                  style={{ borderRadius: 'var(--radius-msg-assistant)' }}
+                >
+                  <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                    Assistant
+                  </span>
+                  <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--color-text-heading)]">
+                    {msg.text}
+                  </p>
+                </div>
+              </div>
+            )
+          )}
           <div ref={messagesEndRef} aria-hidden />
         </div>
 
@@ -1241,10 +1275,15 @@ export default function App() {
         )}
 
         {!showTripForm && (
-          <form className="input-area" onSubmit={handleSubmit}>
-            <input
+          <form
+            className="input-area mt-2 flex shrink-0 gap-2 border-t border-[var(--color-border)] pt-4"
+            onSubmit={handleSubmit}
+          >
+            <TextField
+              compact
               type="text"
-              className="input"
+              className="min-w-0 flex-1"
+              inputClassName="rounded-full py-3"
               placeholder="Ask about your Disney trip…"
               value={input}
               onChange={(e) => setInput(e.target.value)}

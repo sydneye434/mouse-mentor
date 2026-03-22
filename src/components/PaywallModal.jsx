@@ -3,7 +3,7 @@
  * Developed by Sydney Edwards.
  */
 import { useState } from 'react'
-import './PaywallModal.css'
+import { Button } from '../ui'
 
 const FEATURE_COPY = {
   export: {
@@ -81,50 +81,55 @@ export default function PaywallModal({
 
   return (
     <div
-      className="paywall-modal-backdrop"
+      className="fixed inset-0 z-[1200] flex items-center justify-center bg-[var(--color-backdrop)] p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="paywall-modal-title"
     >
-      <div className="paywall-modal" onClick={(e) => e.stopPropagation()}>
-        <h2 id="paywall-modal-title" className="paywall-modal__title">
+      <div
+        className="w-full max-w-md rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-5 py-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2
+          id="paywall-modal-title"
+          className="mb-3 font-display text-xl font-bold text-[var(--color-text-heading)]"
+        >
           {copy.title}
         </h2>
-        <p className="paywall-modal__lede">{copy.body}</p>
-        <ul className="paywall-modal__list">
+        <p className="mb-4 text-[0.95rem] leading-relaxed text-[var(--color-text-muted)]">
+          {copy.body}
+        </p>
+        <ul className="mb-5 list-disc space-y-1 pl-5 text-sm leading-relaxed text-[var(--color-text-body)]">
           <li>PDF itinerary export from your conversation</li>
           <li>Multi-day &amp; structured planning prompts</li>
           <li>One-time payment — no subscription</li>
         </ul>
-        <div className="paywall-modal__price">
-          <span className="paywall-modal__amount">$12</span>
-          <span className="paywall-modal__once">one-time</span>
+        <div className="mb-4 flex flex-wrap items-baseline gap-2 rounded-[var(--radius-input)] border border-[var(--color-sky-border)] bg-[var(--color-sky-light)] px-4 py-3">
+          <span className="text-3xl font-bold text-[var(--color-sky-strong)]">
+            $12
+          </span>
+          <span className="text-sm font-semibold text-[var(--color-text-muted)]">
+            one-time
+          </span>
         </div>
         {error && (
-          <p className="paywall-modal__error" role="alert">
+          <p
+            className="mb-3 rounded-[var(--radius-input)] bg-[var(--color-error-bg)] px-3 py-2 text-sm text-[var(--color-error-text)]"
+            role="alert"
+          >
             {error}
           </p>
         )}
-        <div className="paywall-modal__actions">
-          <button
-            type="button"
-            className="paywall-modal__primary"
-            onClick={handleUnlock}
-            disabled={loading}
-          >
+        <div className="flex flex-col gap-2">
+          <Button type="button" onClick={handleUnlock} disabled={loading}>
             {loading ? 'Redirecting…' : 'Unlock Pro'}
-          </button>
-          <button
-            type="button"
-            className="paywall-modal__secondary"
-            onClick={onClose}
-            disabled={loading}
-          >
+          </Button>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Not now
-          </button>
+          </Button>
         </div>
-        <p className="paywall-modal__hint">
+        <p className="mt-4 text-xs leading-relaxed text-[var(--color-text-muted)]">
           Secure payment via Stripe (test mode in development). Your account is
           upgraded immediately after payment.
         </p>

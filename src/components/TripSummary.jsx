@@ -14,8 +14,6 @@ import {
   RIDE_PREFERENCE_OPTIONS,
   GENIE_PLUS_OPTIONS,
 } from '../tripInfo'
-import './TripInfoForm.css'
-
 function formatDate(s) {
   if (!s) return ''
   try {
@@ -94,13 +92,17 @@ export default function TripSummary({ trip, onEdit }) {
   if (trip.dietaryNotes) parts.push(`dietary: ${trip.dietaryNotes}`)
 
   return (
-    <div className="trip-summary">
-      <p className="trip-summary__title">Your trip</p>
-      <p className="trip-summary__text">{parts.join(' • ')}</p>
+    <div className="mb-4 rounded-[var(--radius-input)] border border-[var(--color-border)] border-l-4 border-l-[var(--color-lilac-strong)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm">
+      <p className="m-0 mb-1 font-semibold text-[var(--color-text-heading)]">
+        Your trip
+      </p>
+      <p className="m-0 leading-relaxed text-[var(--color-text-muted)]">
+        {parts.join(' • ')}
+      </p>
       {onEdit && (
         <button
           type="button"
-          className="trip-summary__edit"
+          className="mt-2 border-0 bg-transparent p-0 text-sm font-medium text-[var(--color-lilac-strong)] underline"
           onClick={onEdit}
           aria-label="Edit trip details"
         >

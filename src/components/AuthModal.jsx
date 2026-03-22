@@ -4,7 +4,7 @@
  * Shows generic error for failed sign-in to avoid user enumeration.
  */
 import { useState } from 'react'
-import './AuthModal.css'
+import { TextField, Button } from '../ui'
 
 export default function AuthModal({ onClose, onSuccess }) {
   const [mode, setMode] = useState('login') // 'login' | 'register'
@@ -105,53 +105,58 @@ export default function AuthModal({ onClose, onSuccess }) {
 
   return (
     <div
-      className="auth-modal-backdrop"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--color-backdrop)] p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
     >
-      <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
-        <h2 id="auth-modal-title" className="auth-modal__title">
+      <div
+        className="w-full max-w-[22rem] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2
+          id="auth-modal-title"
+          className="mb-5 font-display text-xl font-semibold text-[var(--color-text-heading)]"
+        >
           {mode === 'login' ? 'Sign in' : 'Create account'}
         </h2>
-        <form onSubmit={handleSubmit} className="auth-modal__form">
-          <label className="auth-modal__label">
-            Email
-            <input
-              type="email"
-              className="auth-modal__input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              disabled={loading}
-            />
-          </label>
-          <label className="auth-modal__label">
-            Password
-            <input
-              type="password"
-              className="auth-modal__input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={
-                mode === 'login' ? 'current-password' : 'new-password'
-              }
-              disabled={loading}
-            />
-          </label>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <TextField
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            disabled={loading}
+          />
+          <TextField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete={
+              mode === 'login' ? 'current-password' : 'new-password'
+            }
+            disabled={loading}
+          />
           {mode === 'register' && (
-            <p className="auth-modal__hint">At least 8 characters</p>
+            <p className="-mt-1 text-xs text-[var(--color-text-muted)]">
+              At least 8 characters
+            </p>
           )}
           {error && (
-            <p className="auth-modal__error" role="alert">
+            <p
+              className="rounded-[var(--radius-input)] bg-[var(--color-error-bg)] px-3 py-2 text-sm text-[var(--color-error-text)]"
+              role="alert"
+            >
               {error}
             </p>
           )}
-          <div className="auth-modal__actions">
-            <button
+          <div className="mt-1 flex gap-2">
+            <Button
               type="submit"
-              className="auth-modal__submit"
+              className="min-w-0 flex-1"
               disabled={loading}
             >
               {loading
@@ -159,24 +164,24 @@ export default function AuthModal({ onClose, onSuccess }) {
                 : mode === 'login'
                   ? 'Sign in'
                   : 'Create account'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="auth-modal__cancel"
+              variant="secondary"
               onClick={onClose}
               disabled={loading}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
-        <p className="auth-modal__toggle">
+        <p className="mt-4 text-center text-sm text-[var(--color-text-muted)]">
           {mode === 'login'
             ? "Don't have an account? "
             : 'Already have an account? '}
           <button
             type="button"
-            className="auth-modal__toggle-btn"
+            className="font-semibold text-[var(--color-lilac-strong)] underline-offset-2 hover:underline"
             onClick={() => {
               setMode(mode === 'login' ? 'register' : 'login')
               setError('')
