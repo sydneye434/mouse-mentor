@@ -139,6 +139,29 @@ def test_chat_save_trip_requires_auth():
     assert "Sign in" in response.json()["detail"]
 
 
+def test_export_requires_messages():
+    response = client.post("/export", json={"messages": []})
+    assert response.status_code == 400
+
+
+@patch("main.itinerary_export.build_itinerary_pdf", return_value=b"%PDF-1.4\n")
+@patch(
+    "main.itinerary_export.extract_itinerary_json",
+    return_value={"summary": "Test trip", "days": []},
+)
+def test_export_returns_pdf(mock_extract, mock_build):
+    response = client.post(
+        "/export",
+        json={"messages": [{"role": "user", "text": "Plan my day at EPCOT"}]},
+    )
+    assert response.status_code == 200
+    assert response.headers.get("content-type", "").startswith("application/pdf")
+    assert "attachment" in response.headers.get("content-disposition", "").lower()
+    assert response.content.startswith(b"%PDF")
+    mock_extract.assert_called_once()
+    mock_build.assert_called_once()
+
+
 def test_get_trip_requires_auth():
     response = client.get("/trip")
     assert response.status_code == 401

@@ -600,6 +600,62 @@
   color: var(--ink);
 }
 
+.export-itinerary-row {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.export-itinerary-btn {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--ink);
+  background: linear-gradient(
+    135deg,
+    rgba(168, 212, 240, 0.45) 0%,
+    rgba(232, 196, 212, 0.35) 100%
+  );
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.export-itinerary-btn:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 212, 240, 0.65) 0%,
+    rgba(232, 196, 212, 0.5) 100%
+  );
+  border-color: var(--castle-light);
+}
+
+.export-itinerary-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.export-itinerary-error {
+  font-size: 0.8125rem;
+  color: #b83232;
+}
+
+html[data-theme='dark'] .export-itinerary-btn {
+  background: rgba(91, 143, 185, 0.22);
+  color: var(--ink);
+}
+
+html[data-theme='dark'] .export-itinerary-btn:hover:not(:disabled) {
+  background: rgba(91, 143, 185, 0.35);
+}
+
 .input-area {
   flex-shrink: 0;
   display: flex;

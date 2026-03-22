@@ -110,6 +110,8 @@ export default function App() {
   const [waitPanelOpen, setWaitPanelOpen] = useState(false)
   const [waitTimesLoading, setWaitTimesLoading] = useState(false)
   const [waitTimesError, setWaitTimesError] = useState(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState(null)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -398,6 +400,56 @@ export default function App() {
       )
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleExportItinerary() {
+    if (!messages.length || loading || exporting) return
+    setExporting(true)
+    setExportError(null)
+    try {
+      const body = {
+        messages: messages.map(({ role, text }) => ({ role, text })),
+      }
+      if (tripInfo) body.trip_info = toTripInfoPayload(tripInfo)
+      const headers = { 'Content-Type': 'application/json' }
+      if (user?.token) headers.Authorization = `Bearer ${user.token}`
+      const res = await fetch(`${API_BASE}/export`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      })
+      if (res.status === 401) {
+        handleLogout()
+        setExportError('You were signed out. Sign in again to export.')
+        return
+      }
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        const detail = errJson.detail
+        const msg =
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail)
+              ? detail.map((d) => d.msg || d).join(', ')
+              : res.statusText
+        throw new Error(msg || `Export failed (${res.status})`)
+      }
+      const blob = await res.blob()
+      if (!blob.size) throw new Error('Empty PDF response')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'mouse-mentor-itinerary.pdf'
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setExportError(e.message || 'Could not export PDF.')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -948,6 +1000,24 @@ export default function App() {
           ))}
           <div ref={messagesEndRef} aria-hidden />
         </div>
+
+        {!showTripForm && messages.length > 0 && (
+          <div className="export-itinerary-row">
+            <button
+              type="button"
+              className="export-itinerary-btn"
+              onClick={handleExportItinerary}
+              disabled={loading || exporting}
+            >
+              {exporting ? 'Exporting…' : 'Export Itinerary'}
+            </button>
+            {exportError && (
+              <span className="export-itinerary-error" role="alert">
+                {exportError}
+              </span>
+            )}
+          </div>
+        )}
 
         {!showTripForm && (
           <form className="input-area" onSubmit={handleSubmit}>

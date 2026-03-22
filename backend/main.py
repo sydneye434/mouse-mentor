@@ -5,6 +5,7 @@ Async FastAPI + SQLAlchemy. Developed by Sydney Edwards.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
@@ -12,12 +13,13 @@ from typing import List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import auth
 import env  # noqa: F401  # load .env before database/auth read os.environ
+import itinerary_export
 import store
 import wait_times
 from ai import stream_reply as ai_stream_reply
@@ -165,6 +167,13 @@ class ChatRequest(BaseModel):
     shortest_waits: Optional[list[ShortestWaitItem]] = None
 
 
+class ExportRequest(BaseModel):
+    """Chat transcript + optional trip for PDF itinerary export."""
+
+    messages: list[ChatMessage]
+    trip_info: Optional[TripInfo] = None
+
+
 def _sse_data(obj: dict) -> str:
     """One Server-Sent Event data line (JSON payload)."""
     return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n"
@@ -251,6 +260,50 @@ async def chat(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/export")
+async def export_itinerary_pdf(request: ExportRequest):
+    """
+    Extract a day-by-day itinerary from the conversation via the LLM and return a PDF.
+    """
+    if not request.messages:
+        raise HTTPException(
+            status_code=400,
+            detail="Add some chat messages before exporting.",
+        )
+    messages_payload = [{"role": m.role, "text": m.text} for m in request.messages]
+    trip_dict = request.trip_info.model_dump() if request.trip_info else None
+    try:
+        itinerary = await asyncio.to_thread(
+            itinerary_export.extract_itinerary_json,
+            messages_payload,
+            trip_dict,
+        )
+        pdf_bytes = await asyncio.to_thread(
+            itinerary_export.build_itinerary_pdf,
+            trip_dict,
+            itinerary,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not parse itinerary from the model: {e!s}",
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not generate PDF: {e!s}",
+        ) from e
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="mouse-mentor-itinerary.pdf"',
         },
     )
 
