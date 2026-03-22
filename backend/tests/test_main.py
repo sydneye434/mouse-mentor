@@ -9,7 +9,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 import auth
-from main import app
+from main import app, limiter
 
 client = TestClient(app)
 
@@ -72,6 +72,28 @@ def test_chat_empty_messages():
 
 async def _fake_stream_short(*args, **kwargs):
     yield "Best time to visit is typically off-peak. Ask me about crowds and events!"
+
+
+@patch("main.ai_stream_reply", side_effect=_fake_stream_short)
+def test_chat_rate_limit_unauthenticated(mock_stream):
+    """Anonymous clients: 5 requests/hour per IP; 6th returns 429 + Retry-After."""
+    limiter.reset()
+    prev = limiter.enabled
+    limiter.enabled = True
+    try:
+        payload = {"messages": [{"role": "user", "text": "Rate limit probe"}]}
+        for _ in range(5):
+            r = client.post("/chat", json=payload)
+            assert r.status_code == 200
+        blocked = client.post("/chat", json=payload)
+        assert blocked.status_code == 429
+        body = blocked.json()
+        assert "detail" in body
+        assert body.get("error") == "rate_limited"
+        assert blocked.headers.get("Retry-After")
+    finally:
+        limiter.enabled = prev
+        limiter.reset()
 
 
 @patch("main.ai_stream_reply", side_effect=_fake_stream_short)

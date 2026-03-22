@@ -15,7 +15,12 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 import auth
 import env  # noqa: F401  # load .env before database/auth read os.environ
@@ -30,6 +35,14 @@ from ai import (
     stream_reply as ai_stream_reply,
 )
 from database import async_session_maker, get_session, init_db
+from rate_limit import chat_limit_for_key, chat_rate_limit_key
+
+# Per-route limits use chat_rate_limit_key + chat_limit_for_key; default key is IP.
+limiter = Limiter(
+    key_func=get_remote_address,
+    headers_enabled=True,
+    retry_after="seconds",
+)
 
 
 def _cors_origins() -> List[str]:
@@ -48,12 +61,34 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Mouse Mentor API", lifespan=lifespan)
 
+app.state.limiter = limiter
+
+
+def rate_limit_exceeded_handler(
+    request: Request, _exc: RateLimitExceeded
+) -> JSONResponse:
+    """JSON body + Retry-After / X-RateLimit-* via slowapi when limits are exceeded."""
+    response = JSONResponse(
+        status_code=429,
+        content={
+            "detail": "Too many chat requests. Please wait before trying again.",
+            "error": "rate_limited",
+        },
+    )
+    return request.app.state.limiter._inject_headers(
+        response, request.state.view_rate_limit
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
 )
 
 
@@ -203,27 +238,29 @@ async def get_wait_times(refresh: bool = False):
 
 
 @app.post("/chat")
+@limiter.limit(chat_limit_for_key, key_func=chat_rate_limit_key)
 async def chat(
-    request: ChatRequest,
+    request: Request,
+    body: ChatRequest,
     session: AsyncSession = Depends(get_session),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ):
     user_id = get_current_user_id(authorization)
-    if request.save_trip and request.trip_info:
+    if body.save_trip and body.trip_info:
         if user_id is None:
             raise HTTPException(
                 status_code=401,
                 detail="Sign in to save your trip",
             )
-        await store.save_trip(session, user_id, request.trip_info.model_dump())
-    elif not request.save_trip and user_id is not None:
+        await store.save_trip(session, user_id, body.trip_info.model_dump())
+    elif not body.save_trip and user_id is not None:
         await store.delete_trip(session, user_id)
         await store.clear_chat_messages(session, user_id)
 
-    last = request.messages[-1] if request.messages else None
-    trip = request.trip_info
+    last = body.messages[-1] if body.messages else None
+    trip = body.trip_info
 
-    messages_payload = [{"role": m.role, "text": m.text} for m in request.messages]
+    messages_payload = [{"role": m.role, "text": m.text} for m in body.messages]
     conv_summary: Optional[str] = None
     messages_for_llm = messages_payload
     if last and last.text.strip() and len(messages_payload) > CHAT_HISTORY_WINDOW:
@@ -236,7 +273,7 @@ async def chat(
         except Exception:
             conv_summary = None
 
-    persist_messages = user_id is not None and request.save_trip
+    persist_messages = user_id is not None and body.save_trip
 
     async def event_generator():
         full_reply: list[str] = []
@@ -251,8 +288,8 @@ async def chat(
             trip_dict = trip.model_dump() if trip else None
 
             wait_list: list[dict] = []
-            if request.shortest_waits:
-                wait_list = [w.model_dump() for w in request.shortest_waits]
+            if body.shortest_waits:
+                wait_list = [w.model_dump() for w in body.shortest_waits]
             else:
                 try:
                     wt = await wait_times.get_wait_times_response()
@@ -287,7 +324,7 @@ async def chat(
                 try:
                     async with async_session_maker() as session:
                         msgs = [
-                            {"role": m.role, "text": m.text} for m in request.messages
+                            {"role": m.role, "text": m.text} for m in body.messages
                         ]
                         msgs.append({"role": "assistant", "text": text})
                         await store.set_chat_messages(session, user_id, msgs)

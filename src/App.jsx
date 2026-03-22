@@ -356,6 +356,34 @@ export default function App() {
         )
         return
       }
+      if (res.status === 429) {
+        const errJson = await res.json().catch(() => ({}))
+        const retryAfter = res.headers.get('Retry-After')
+        let retryHint = ''
+        if (retryAfter) {
+          const sec = parseInt(retryAfter, 10)
+          if (!Number.isNaN(sec) && sec > 0) {
+            const mins = Math.max(1, Math.ceil(sec / 60))
+            retryHint = ` You can try again in about ${mins} minute${mins === 1 ? '' : 's'}.`
+          }
+        }
+        const detail =
+          typeof errJson.detail === 'string'
+            ? errJson.detail
+            : "You've sent a few too many messages. Please take a short break."
+        setMessages((prev) =>
+          prev
+            .filter((m) => m.id !== assistantId)
+            .concat([
+              {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                text: `${detail}${retryHint}`,
+              },
+            ])
+        )
+        return
+      }
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}))
         const detail = errJson.detail

@@ -3,6 +3,11 @@ Shared pytest fixtures: mock ThemeParks Wiki wait-times fetch for chat tests.
 Developed by Sydney Edwards.
 """
 
+import os
+
+# Disable slowapi during tests so suite can POST /chat many times without 429.
+os.environ.setdefault("RATELIMIT_ENABLED", "false")
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
