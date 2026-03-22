@@ -478,3 +478,43 @@ def test_itinerary_generate_returns_json(mock_gen):
     assert "itinerary" in data
     assert data["itinerary"]["summary"] == "Test plan"
     mock_gen.assert_called_once()
+
+
+@patch(
+    "main.ll_guide.generate_lightning_lane_guide",
+    return_value={
+        "intro": "LL intro",
+        "explainer": {
+            "lightning_lane_multi_pass": {
+                "title": "Multi Pass",
+                "plain_language": "x",
+                "best_for": "y",
+            },
+            "lightning_lane_single_pass": {
+                "title": "Single Pass",
+                "plain_language": "x",
+                "best_for": "y",
+            },
+            "individual_lightning_lane": {
+                "title": "ILL",
+                "plain_language": "x",
+                "best_for": "y",
+            },
+        },
+        "days": [],
+    },
+)
+def test_lightning_lane_guide_generate(mock_ll):
+    trip = {
+        "destination": "disney-world",
+        "arrival_date": "2025-06-01",
+        "departure_date": "2025-06-02",
+    }
+    response = client.post(
+        "/lightning-lane-guide/generate", json={"trip_info": trip}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "guide" in data
+    assert data["guide"]["intro"] == "LL intro"
+    mock_ll.assert_called_once()

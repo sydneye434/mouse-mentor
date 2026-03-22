@@ -115,9 +115,32 @@ def _migrate_saved_trips_generated_itinerary(connection) -> None:
         )
 
 
+def _migrate_saved_trips_lightning_lane_guide(connection) -> None:
+    """Add lightning_lane_guide JSON to saved_trips."""
+    insp = inspect(connection)
+    try:
+        cols = [c["name"] for c in insp.get_columns("saved_trips")]
+    except Exception:
+        return
+    if "lightning_lane_guide" in cols:
+        return
+    dialect = connection.dialect.name
+    if dialect == "sqlite":
+        connection.execute(
+            text("ALTER TABLE saved_trips ADD COLUMN lightning_lane_guide TEXT")
+        )
+    else:
+        connection.execute(
+            text(
+                "ALTER TABLE saved_trips ADD COLUMN IF NOT EXISTS lightning_lane_guide JSONB"
+            )
+        )
+
+
 async def init_db() -> None:
     """Create tables if they do not exist; migrate legacy schemas."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_migrate_users_is_pro_column)
         await conn.run_sync(_migrate_saved_trips_generated_itinerary)
+        await conn.run_sync(_migrate_saved_trips_lightning_lane_guide)

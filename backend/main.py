@@ -25,6 +25,7 @@ from starlette.responses import JSONResponse
 import auth
 import env  # noqa: F401  # load .env before database/auth read os.environ
 import itinerary_export
+import lightning_lane_guide as ll_guide
 import store
 import wait_times
 from ai import (
@@ -214,6 +215,12 @@ class ItineraryGenerateRequest(BaseModel):
 
     trip_info: TripInfo
     shortest_waits: Optional[list[ShortestWaitItem]] = None
+
+
+class LightningLaneGuideRequest(BaseModel):
+    """Onboarding trip profile for structured Lightning Lane guide JSON."""
+
+    trip_info: TripInfo
 
 
 def _sse_data(obj: dict) -> str:
@@ -465,6 +472,45 @@ async def export_structured_itinerary_pdf(
     )
 
 
+@app.post("/lightning-lane-guide/generate")
+@limiter.limit("30/hour")
+async def generate_lightning_lane_guide_endpoint(
+    request: Request,
+    body: LightningLaneGuideRequest,
+    session: AsyncSession = Depends(get_session),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    """
+    Structured JSON: Multi Pass / Single Pass / Individual LL explainer + per-day
+    booking order and wake times from party composition and thrill tolerance.
+    """
+    user_id = get_current_user_id(authorization)
+    trip_dict = body.trip_info.model_dump()
+    try:
+        guide = await asyncio.to_thread(
+            ll_guide.generate_lightning_lane_guide,
+            trip_dict,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not parse Lightning Lane guide JSON: {e!s}",
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not generate Lightning Lane guide: {e!s}",
+        ) from e
+
+    if user_id is not None:
+        await store.save_trip(session, user_id, trip_dict)
+        await store.set_lightning_lane_guide(session, user_id, guide)
+
+    return {"guide": guide}
+
+
 @app.get("/messages")
 async def get_saved_messages(
     user_id: int = Depends(require_user),
@@ -494,10 +540,15 @@ async def get_saved_trip(
 ):
     bundle = await store.get_trip_bundle(session, user_id)
     if bundle is None:
-        return {"trip": None, "generated_itinerary": None}
+        return {
+            "trip": None,
+            "generated_itinerary": None,
+            "lightning_lane_guide": None,
+        }
     return {
         "trip": bundle["trip"],
         "generated_itinerary": bundle.get("generated_itinerary"),
+        "lightning_lane_guide": bundle.get("lightning_lane_guide"),
     }
 
 

@@ -11,6 +11,7 @@ import { TextField } from './ui'
 import GetToKnowYou from './components/GetToKnowYou.jsx'
 import DashboardHome from './components/DashboardHome.jsx'
 import ItineraryPage from './components/ItineraryPage.jsx'
+import LightningLaneGuidePage from './components/LightningLaneGuidePage.jsx'
 import TripSummary from './components/TripSummary.jsx'
 import AuthModal from './components/AuthModal.jsx'
 import PaywallModal from './components/PaywallModal.jsx'
@@ -24,6 +25,7 @@ const AUTH_STORAGE_KEY = 'mouse-mentor-auth'
 const THEME_STORAGE_KEY = 'mouse-mentor-theme'
 const SCREEN_STORAGE_KEY = 'mouse-mentor-screen'
 const ITINERARY_STORAGE_KEY = 'mouse-mentor-structured-itinerary'
+const LL_GUIDE_STORAGE_KEY = 'mouse-mentor-lightning-lane-guide'
 
 function getStoredTheme() {
   try {
@@ -162,6 +164,10 @@ export default function App() {
   const [itineraryLoading, setItineraryLoading] = useState(false)
   const [itineraryError, setItineraryError] = useState(null)
   const [itineraryExporting, setItineraryExporting] = useState(false)
+  const [lightningGuide, setLightningGuide] = useState(null)
+  const [lightningLoading, setLightningLoading] = useState(false)
+  const [lightningError, setLightningError] = useState(null)
+  const llAutoRequestedRef = useRef(false)
   const navigate = useNavigate()
   const location = useLocation()
   const checkoutHandledRef = useRef(false)
@@ -273,8 +279,13 @@ export default function App() {
     setMessages([])
     setStructuredItinerary(null)
     setItineraryError(null)
+    setLightningGuide(null)
+    setLightningError(null)
     try {
       localStorage.removeItem(ITINERARY_STORAGE_KEY)
+    } catch {}
+    try {
+      localStorage.removeItem(LL_GUIDE_STORAGE_KEY)
     } catch {}
     chatHistoryLoadedRef.current = false
   }, [])
@@ -305,6 +316,15 @@ export default function App() {
           )
         } catch {}
       }
+      if (data.lightning_lane_guide) {
+        setLightningGuide(data.lightning_lane_guide)
+        try {
+          localStorage.setItem(
+            LL_GUIDE_STORAGE_KEY,
+            JSON.stringify(data.lightning_lane_guide)
+          )
+        } catch {}
+      }
     } catch {
       // ignore
     }
@@ -316,6 +336,17 @@ export default function App() {
     try {
       const raw = localStorage.getItem(ITINERARY_STORAGE_KEY)
       if (raw) setStructuredItinerary(JSON.parse(raw))
+    } catch {
+      /* ignore */
+    }
+  }, [user?.token])
+
+  /** Guests: restore Lightning Lane guide from localStorage. */
+  useEffect(() => {
+    if (user?.token) return
+    try {
+      const raw = localStorage.getItem(LL_GUIDE_STORAGE_KEY)
+      if (raw) setLightningGuide(JSON.parse(raw))
     } catch {
       /* ignore */
     }
@@ -459,6 +490,76 @@ export default function App() {
     [user?.token, handleLogout]
   )
 
+  const requestLightningGuide = useCallback(
+    async (trip) => {
+      if (!trip) return
+      setLightningLoading(true)
+      setLightningError(null)
+      try {
+        const body = { trip_info: toTripInfoPayload(trip) }
+        const headers = { 'Content-Type': 'application/json' }
+        if (user?.token) headers.Authorization = `Bearer ${user.token}`
+        const res = await fetch(`${API_BASE}/lightning-lane-guide/generate`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        })
+        if (res.status === 401) {
+          handleLogout()
+          throw new Error(
+            'You were signed out. Sign in again to save your guide.'
+          )
+        }
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}))
+          const detail = errJson.detail
+          const msg =
+            typeof detail === 'string'
+              ? detail
+              : 'Could not generate Lightning Lane guide'
+          throw new Error(msg)
+        }
+        const data = await res.json()
+        setLightningGuide(data.guide)
+        try {
+          localStorage.setItem(
+            LL_GUIDE_STORAGE_KEY,
+            JSON.stringify(data.guide)
+          )
+        } catch {}
+      } catch (e) {
+        llAutoRequestedRef.current = false
+        setLightningError(e.message || 'Could not generate guide.')
+      } finally {
+        setLightningLoading(false)
+      }
+    },
+    [user?.token, handleLogout]
+  )
+
+  useEffect(() => {
+    llAutoRequestedRef.current = false
+  }, [tripInfo?.arrivalDate, tripInfo?.departureDate])
+
+  useEffect(() => {
+    if (location.pathname !== '/lightning-lane-guide') {
+      llAutoRequestedRef.current = false
+      return
+    }
+    if (!tripInfo?.arrivalDate || !tripInfo?.departureDate) return
+    if (lightningGuide) return
+    if (lightningLoading) return
+    if (llAutoRequestedRef.current) return
+    llAutoRequestedRef.current = true
+    void requestLightningGuide(tripInfo)
+  }, [
+    location.pathname,
+    tripInfo,
+    lightningGuide,
+    lightningLoading,
+    requestLightningGuide,
+  ])
+
   function handleTripSubmit(payload) {
     const { saveTripData: optIn, ...trip } = payload
     setTripInfo(trip)
@@ -466,6 +567,12 @@ export default function App() {
     setShowTripForm(false)
     setShowDeleteConfirm(false)
     setDeleteConfirmChecked(false)
+    setLightningGuide(null)
+    setLightningError(null)
+    try {
+      localStorage.removeItem(LL_GUIDE_STORAGE_KEY)
+    } catch {}
+    llAutoRequestedRef.current = false
     navigate('/itinerary')
     void requestStructuredItinerary(trip)
   }
@@ -539,8 +646,12 @@ export default function App() {
         setDeleteConfirmChecked(false)
         setMessages([])
         setStructuredItinerary(null)
+        setLightningGuide(null)
         try {
           localStorage.removeItem(ITINERARY_STORAGE_KEY)
+        } catch {}
+        try {
+          localStorage.removeItem(LL_GUIDE_STORAGE_KEY)
         } catch {}
         chatHistoryLoadedRef.current = false
       }
@@ -1212,14 +1323,32 @@ export default function App() {
                 >
                   Itinerary
                 </NavLink>
+                <NavLink
+                  to="/lightning-lane-guide"
+                  className={({ isActive }) =>
+                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`
+                  }
+                >
+                  Lightning Lane
+                </NavLink>
               </div>
             ) : (
-              <a
-                href="#chat-main"
-                className="header__nav-link header__nav-link--active"
-              >
-                Plan
-              </a>
+              <div className="flex shrink-0 flex-wrap items-center gap-3 md:gap-4">
+                <a
+                  href="#chat-main"
+                  className="header__nav-link header__nav-link--active"
+                >
+                  Plan
+                </a>
+                <NavLink
+                  to="/lightning-lane-guide"
+                  className={({ isActive }) =>
+                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`
+                  }
+                >
+                  Lightning Lane
+                </NavLink>
+              </div>
             )}
           </nav>
           <div className="header__auth">
@@ -1297,6 +1426,21 @@ export default function App() {
             }
           />
           <Route
+            path="/lightning-lane-guide"
+            element={
+              <LightningLaneGuidePage
+                tripInfo={tripInfo}
+                guide={lightningGuide}
+                loading={lightningLoading}
+                error={lightningError}
+                onRefresh={() => tripInfo && requestLightningGuide(tripInfo)}
+                onRequestGenerate={() =>
+                  tripInfo && requestLightningGuide(tripInfo)
+                }
+              />
+            }
+          />
+          <Route
             path="/*"
             element={
               <>
@@ -1321,6 +1465,7 @@ export default function App() {
             onRefreshWaits={fetchWaitTimes}
             onAskGuide={goToChat}
             onItineraryPreview={handleItineraryFromHub}
+            onOpenLightningLaneGuide={() => navigate('/lightning-lane-guide')}
             onPlanTrip={() => setShowTripForm(true)}
             onEditTrip={() => setShowTripForm(true)}
           />

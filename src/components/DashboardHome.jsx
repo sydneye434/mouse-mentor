@@ -11,6 +11,7 @@ import {
   Sparkles,
   MapPin,
   RefreshCw,
+  Zap,
 } from 'lucide-react'
 import { DESTINATIONS } from '../tripInfo'
 
@@ -51,6 +52,7 @@ export default function DashboardHome({
   onRefreshWaits,
   onAskGuide,
   onItineraryPreview,
+  onOpenLightningLaneGuide,
   onPlanTrip,
   onEditTrip,
 }) {
@@ -265,6 +267,31 @@ export default function DashboardHome({
           className="mt-4 w-full rounded-[var(--radius-pill)] border-[1.5px] border-[var(--color-lilac-strong)] bg-transparent py-2.5 text-sm font-semibold text-[var(--color-lilac-strong)] hover:bg-[var(--color-lilac-light)]"
         >
           {user?.is_pro ? 'Open full itinerary' : 'Unlock with Pro'}
+        </button>
+      </section>
+
+      {/* Lightning Lane Guide */}
+      <section
+        className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-5 shadow-sm"
+        aria-labelledby="dash-ll-heading"
+      >
+        <h3
+          id="dash-ll-heading"
+          className="flex items-center gap-2 font-display text-lg font-semibold text-[var(--color-text-heading)]"
+        >
+          <Zap className="h-5 w-5 text-amber-500" aria-hidden />
+          Lightning Lane Guide
+        </h3>
+        <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+          Plain-English Multi Pass, Single Pass &amp; Individual LL—plus which
+          rides to book first for your group and when to wake up.
+        </p>
+        <button
+          type="button"
+          onClick={onOpenLightningLaneGuide}
+          className="mt-4 w-full rounded-[var(--radius-pill)] border-[1.5px] border-amber-600/60 bg-amber-50/80 py-2.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-500/50 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50"
+        >
+          Open Lightning Lane Guide
         </button>
       </section>
 

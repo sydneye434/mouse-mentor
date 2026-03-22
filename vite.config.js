@@ -21,6 +21,10 @@ export default defineConfig({
       // API only — do not proxy GET /itinerary (SPA route)
       '/itinerary/generate': { target: 'http://localhost:8000', changeOrigin: true },
       '/itinerary/export-pdf': { target: 'http://localhost:8000', changeOrigin: true },
+      '/lightning-lane-guide/generate': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
   test: {

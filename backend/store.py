@@ -50,6 +50,7 @@ async def get_trip_bundle(
     return {
         "trip": dict(row.trip_data),
         "generated_itinerary": row.generated_itinerary,
+        "lightning_lane_guide": row.lightning_lane_guide,
     }
 
 
@@ -63,6 +64,19 @@ async def set_generated_itinerary(
     if row is None:
         raise ValueError("No saved trip for user")
     row.generated_itinerary = itinerary
+    await session.flush()
+
+
+async def set_lightning_lane_guide(
+    session: AsyncSession, user_id: int, guide: dict[str, Any]
+) -> None:
+    result = await session.execute(
+        select(SavedTrip).where(SavedTrip.user_id == user_id)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise ValueError("No saved trip for user")
+    row.lightning_lane_guide = guide
     await session.flush()
 
 
