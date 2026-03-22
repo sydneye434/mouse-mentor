@@ -209,6 +209,13 @@ class ExportRequest(BaseModel):
     trip_info: Optional[TripInfo] = None
 
 
+class ItineraryGenerateRequest(BaseModel):
+    """Trip context + optional wait samples for structured day-by-day JSON."""
+
+    trip_info: TripInfo
+    shortest_waits: Optional[list[ShortestWaitItem]] = None
+
+
 def _sse_data(obj: dict) -> str:
     """One Server-Sent Event data line (JSON payload)."""
     return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n"
@@ -383,6 +390,81 @@ async def export_itinerary_pdf(
     )
 
 
+@app.post("/itinerary/generate")
+@limiter.limit("30/hour")
+async def generate_structured_itinerary(
+    request: Request,
+    body: ItineraryGenerateRequest,
+    session: AsyncSession = Depends(get_session),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    """
+    One-shot LLM call: full day-by-day plan as JSON (timeline schema).
+    Anonymous OK (rate limited); signed-in users also persist to saved_trips.
+    """
+    user_id = get_current_user_id(authorization)
+    trip_dict = body.trip_info.model_dump()
+    wait_list = [w.model_dump() for w in (body.shortest_waits or [])]
+    try:
+        itinerary = await asyncio.to_thread(
+            itinerary_export.generate_structured_itinerary_from_trip,
+            trip_dict,
+            wait_list,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not parse itinerary JSON: {e!s}",
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not generate itinerary: {e!s}",
+        ) from e
+
+    if user_id is not None:
+        await store.save_trip(session, user_id, trip_dict)
+        await store.set_generated_itinerary(session, user_id, itinerary)
+
+    return {"itinerary": itinerary}
+
+
+@app.post("/itinerary/export-pdf")
+async def export_structured_itinerary_pdf(
+    user_id: int = Depends(require_pro),
+    session: AsyncSession = Depends(get_session),
+):
+    """Download PDF of the structured timeline (Pro)."""
+    bundle = await store.get_trip_bundle(session, user_id)
+    if not bundle or not bundle.get("generated_itinerary"):
+        raise HTTPException(
+            status_code=400,
+            detail="Generate your itinerary from the trip planner first.",
+        )
+    trip_dict = bundle["trip"]
+    itinerary = bundle["generated_itinerary"]
+    try:
+        pdf_bytes = await asyncio.to_thread(
+            itinerary_export.build_structured_itinerary_pdf,
+            trip_dict,
+            itinerary,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not build PDF: {e!s}",
+        ) from e
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="mouse-mentor-itinerary.pdf"',
+        },
+    )
+
+
 @app.get("/messages")
 async def get_saved_messages(
     user_id: int = Depends(require_user),
@@ -410,8 +492,13 @@ async def get_saved_trip(
     user_id: int = Depends(require_user),
     session: AsyncSession = Depends(get_session),
 ):
-    data = await store.get_trip(session, user_id)
-    return {"trip": data}
+    bundle = await store.get_trip_bundle(session, user_id)
+    if bundle is None:
+        return {"trip": None, "generated_itinerary": None}
+    return {
+        "trip": bundle["trip"],
+        "generated_itinerary": bundle.get("generated_itinerary"),
+    }
 
 
 @app.delete("/trip")

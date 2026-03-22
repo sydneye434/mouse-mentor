@@ -46,6 +46,10 @@ class SavedTrip(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     trip_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    """LLM-generated day-by-day structured plan (see itinerary_export schema)."""
+    generated_itinerary: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JSON, nullable=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

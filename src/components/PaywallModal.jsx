@@ -10,6 +10,10 @@ const FEATURE_COPY = {
     title: 'Export your itinerary',
     body: 'Download a polished PDF itinerary from your chat—perfect for sharing or printing before you go.',
   },
+  itinerary: {
+    title: 'Your full day-by-day timeline',
+    body: 'See every block of your personalized plan—rides, waits, and walking tips—with PDF export for Pro.',
+  },
   'multi-day': {
     title: 'Multi-day park plan',
     body: 'Unlock deeper planning: structured day-by-day suggestions and priority prompts tailored to your trip.',

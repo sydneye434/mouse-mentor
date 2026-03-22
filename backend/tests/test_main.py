@@ -440,3 +440,41 @@ def test_delete_trip_requires_valid_token():
     """DELETE /trip must return 401 without valid token."""
     response = client.delete("/trip")
     assert response.status_code == 401
+
+
+@patch(
+    "main.itinerary_export.generate_structured_itinerary_from_trip",
+    return_value={
+        "summary": "Test plan",
+        "days": [
+            {
+                "date": "2025-06-01",
+                "park_name": "Magic Kingdom",
+                "blocks": [
+                    {
+                        "period": "morning",
+                        "items": [
+                            {
+                                "name": "Haunted Mansion",
+                                "estimated_wait_minutes": 35,
+                                "walking_tip": "Start in Liberty Square.",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    },
+)
+def test_itinerary_generate_returns_json(mock_gen):
+    trip = {
+        "destination": "disney-world",
+        "arrival_date": "2025-06-01",
+        "departure_date": "2025-06-02",
+    }
+    response = client.post("/itinerary/generate", json={"trip_info": trip})
+    assert response.status_code == 200
+    data = response.json()
+    assert "itinerary" in data
+    assert data["itinerary"]["summary"] == "Test plan"
+    mock_gen.assert_called_once()

@@ -3,12 +3,14 @@
  * Main app: auth state, get-to-know-you flow, chat, and saved trip. Uses proxy in dev for API.
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { Routes, Route, useNavigate, useLocation, NavLink } from 'react-router-dom'
 import { Wand2 } from 'lucide-react'
 import MickeyIcon from './MickeyIcon.jsx'
 import MickeyEarAvatar from './components/MickeyEarAvatar.jsx'
 import { TextField } from './ui'
 import GetToKnowYou from './components/GetToKnowYou.jsx'
 import DashboardHome from './components/DashboardHome.jsx'
+import ItineraryPage from './components/ItineraryPage.jsx'
 import TripSummary from './components/TripSummary.jsx'
 import AuthModal from './components/AuthModal.jsx'
 import PaywallModal from './components/PaywallModal.jsx'
@@ -21,6 +23,7 @@ const API_BASE =
 const AUTH_STORAGE_KEY = 'mouse-mentor-auth'
 const THEME_STORAGE_KEY = 'mouse-mentor-theme'
 const SCREEN_STORAGE_KEY = 'mouse-mentor-screen'
+const ITINERARY_STORAGE_KEY = 'mouse-mentor-structured-itinerary'
 
 function getStoredTheme() {
   try {
@@ -155,6 +158,12 @@ export default function App() {
   const [showPaywall, setShowPaywall] = useState(false)
   const [paywallFeature, setPaywallFeature] = useState('export')
   const [appScreen, setAppScreen] = useState(getInitialAppScreen)
+  const [structuredItinerary, setStructuredItinerary] = useState(null)
+  const [itineraryLoading, setItineraryLoading] = useState(false)
+  const [itineraryError, setItineraryError] = useState(null)
+  const [itineraryExporting, setItineraryExporting] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
   const checkoutHandledRef = useRef(false)
   const chatHistoryLoadedRef = useRef(false)
   const messagesEndRef = useRef(null)
@@ -236,18 +245,20 @@ export default function App() {
   }
 
   const goToHub = useCallback(() => {
+    navigate('/')
     setAppScreen('hub')
     try {
       localStorage.setItem(SCREEN_STORAGE_KEY, 'hub')
     } catch {}
-  }, [])
+  }, [navigate])
 
   const goToChat = useCallback(() => {
+    navigate('/')
     setAppScreen('chat')
     try {
       localStorage.setItem(SCREEN_STORAGE_KEY, 'chat')
     } catch {}
-  }, [])
+  }, [navigate])
 
   const handleLogout = useCallback(() => {
     setUser(null)
@@ -260,6 +271,11 @@ export default function App() {
     setShowDeleteConfirm(false)
     setDeleteConfirmChecked(false)
     setMessages([])
+    setStructuredItinerary(null)
+    setItineraryError(null)
+    try {
+      localStorage.removeItem(ITINERARY_STORAGE_KEY)
+    } catch {}
     chatHistoryLoadedRef.current = false
   }, [])
 
@@ -280,10 +296,30 @@ export default function App() {
         setSaveTripData(true)
         setShowTripForm(false)
       }
+      if (data.generated_itinerary) {
+        setStructuredItinerary(data.generated_itinerary)
+        try {
+          localStorage.setItem(
+            ITINERARY_STORAGE_KEY,
+            JSON.stringify(data.generated_itinerary)
+          )
+        } catch {}
+      }
     } catch {
       // ignore
     }
   }, [user?.token, handleLogout])
+
+  /** Guests: restore itinerary JSON from localStorage (no server sync). */
+  useEffect(() => {
+    if (user?.token) return
+    try {
+      const raw = localStorage.getItem(ITINERARY_STORAGE_KEY)
+      if (raw) setStructuredItinerary(JSON.parse(raw))
+    } catch {
+      /* ignore */
+    }
+  }, [user?.token])
 
   useEffect(() => {
     loadSavedTrip()
@@ -361,6 +397,68 @@ export default function App() {
     }
   }, [showTripForm, fetchWaitTimes])
 
+  const requestStructuredItinerary = useCallback(
+    async (trip) => {
+      setItineraryLoading(true)
+      setItineraryError(null)
+      try {
+        let shortestWaits = []
+        try {
+          const wr = await fetch(`${API_BASE}/wait-times`)
+          if (wr.ok) {
+            const wd = await wr.json()
+            shortestWaits = (wd.top10_shortest ?? []).slice(0, 10).map(
+              (w) => ({
+                name: w.name,
+                wait_minutes: w.wait_minutes,
+                park_name: w.park_name,
+              })
+            )
+          }
+        } catch {
+          /* optional context */
+        }
+        const body = {
+          trip_info: toTripInfoPayload(trip),
+          shortest_waits: shortestWaits.length ? shortestWaits : null,
+        }
+        const headers = { 'Content-Type': 'application/json' }
+        if (user?.token) headers.Authorization = `Bearer ${user.token}`
+        const res = await fetch(`${API_BASE}/itinerary/generate`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        })
+        if (res.status === 401) {
+          handleLogout()
+          throw new Error('You were signed out. Sign in again to save your plan.')
+        }
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}))
+          const detail = errJson.detail
+          const msg =
+            typeof detail === 'string'
+              ? detail
+              : 'Could not generate itinerary'
+          throw new Error(msg)
+        }
+        const data = await res.json()
+        setStructuredItinerary(data.itinerary)
+        try {
+          localStorage.setItem(
+            ITINERARY_STORAGE_KEY,
+            JSON.stringify(data.itinerary)
+          )
+        } catch {}
+      } catch (e) {
+        setItineraryError(e.message || 'Could not generate itinerary.')
+      } finally {
+        setItineraryLoading(false)
+      }
+    },
+    [user?.token, handleLogout]
+  )
+
   function handleTripSubmit(payload) {
     const { saveTripData: optIn, ...trip } = payload
     setTripInfo(trip)
@@ -368,6 +466,62 @@ export default function App() {
     setShowTripForm(false)
     setShowDeleteConfirm(false)
     setDeleteConfirmChecked(false)
+    navigate('/itinerary')
+    void requestStructuredItinerary(trip)
+  }
+
+  async function handleExportStructuredItineraryPdf() {
+    if (!user?.token) {
+      setShowAuthModal(true)
+      return
+    }
+    if (!user.is_pro) {
+      setPaywallFeature('itinerary')
+      setShowPaywall(true)
+      return
+    }
+    setItineraryExporting(true)
+    setExportError(null)
+    try {
+      const res = await fetch(`${API_BASE}/itinerary/export-pdf`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      if (res.status === 401) {
+        handleLogout()
+        setExportError('You were signed out. Sign in again to export.')
+        return
+      }
+      if (res.status === 403) {
+        setPaywallFeature('itinerary')
+        setShowPaywall(true)
+        return
+      }
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        const detail = errJson.detail
+        const msg =
+          typeof detail === 'string'
+            ? detail
+            : `Export failed (${res.status})`
+        throw new Error(msg)
+      }
+      const blob = await res.blob()
+      if (!blob.size) throw new Error('Empty PDF response')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'mouse-mentor-itinerary.pdf'
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setExportError(e.message || 'Could not export PDF.')
+    } finally {
+      setItineraryExporting(false)
+    }
   }
 
   async function handleDeleteSavedData() {
@@ -384,6 +538,10 @@ export default function App() {
         setShowDeleteConfirm(false)
         setDeleteConfirmChecked(false)
         setMessages([])
+        setStructuredItinerary(null)
+        try {
+          localStorage.removeItem(ITINERARY_STORAGE_KEY)
+        } catch {}
         chatHistoryLoadedRef.current = false
       }
     } finally {
@@ -697,16 +855,7 @@ export default function App() {
   }
 
   function handleItineraryFromHub() {
-    if (!user?.token) {
-      setShowAuthModal(true)
-      return
-    }
-    if (!user.is_pro) {
-      setPaywallFeature('export')
-      setShowPaywall(true)
-      return
-    }
-    goToChat()
+    navigate('/itinerary')
   }
 
   const showHub = !!(user && appScreen === 'hub')
@@ -1032,11 +1181,13 @@ export default function App() {
               <h1 className="logo">Mouse Mentor</h1>
             </div>
             {user ? (
-              <div className="flex shrink-0 items-center gap-4">
+              <div className="flex shrink-0 flex-wrap items-center gap-3 md:gap-4">
                 <button
                   type="button"
                   className={`header__nav-link ${
-                    showHub ? 'header__nav-link--active' : ''
+                    location.pathname === '/' && showHub
+                      ? 'header__nav-link--active'
+                      : ''
                   }`}
                   onClick={goToHub}
                 >
@@ -1045,12 +1196,22 @@ export default function App() {
                 <button
                   type="button"
                   className={`header__nav-link ${
-                    !showHub ? 'header__nav-link--active' : ''
+                    location.pathname === '/' && !showHub
+                      ? 'header__nav-link--active'
+                      : ''
                   }`}
                   onClick={goToChat}
                 >
                   Guide
                 </button>
+                <NavLink
+                  to="/itinerary"
+                  className={({ isActive }) =>
+                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`
+                  }
+                >
+                  Itinerary
+                </NavLink>
               </div>
             ) : (
               <a
@@ -1116,6 +1277,29 @@ export default function App() {
       )}
 
       <main id="chat-main" className="chat-main">
+        <Routes>
+          <Route
+            path="/itinerary"
+            element={
+              <ItineraryPage
+                user={user}
+                tripInfo={tripInfo}
+                itinerary={structuredItinerary}
+                loading={itineraryLoading}
+                error={itineraryError}
+                exporting={itineraryExporting}
+                onExportPdf={handleExportStructuredItineraryPdf}
+                onUnlockPro={() => {
+                  setPaywallFeature('itinerary')
+                  setShowPaywall(true)
+                }}
+              />
+            }
+          />
+          <Route
+            path="/*"
+            element={
+              <>
         {showTripForm && (
           <GetToKnowYou
             initialTrip={tripInfo}
@@ -1421,6 +1605,10 @@ export default function App() {
             </button>
           </form>
         )}
+              </>
+            }
+          />
+        </Routes>
       </main>
     </div>
   )

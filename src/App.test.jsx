@@ -5,7 +5,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
+
+function renderApp() {
+  return render(
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  )
+}
 
 describe('App', () => {
   beforeEach(() => {
@@ -16,7 +25,7 @@ describe('App', () => {
   })
 
   it('renders logo and tagline', () => {
-    render(<App />)
+    renderApp()
     expect(
       screen.getByRole('heading', { name: /mouse mentor/i })
     ).toBeInTheDocument()
@@ -25,7 +34,7 @@ describe('App', () => {
 
   it('shows empty state when no messages', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
     await user.click(screen.getByRole('button', { name: /skip for now/i }))
     expect(
       screen.getByText(/ask me anything about your disney adventure/i)
@@ -34,7 +43,7 @@ describe('App', () => {
 
   it('has a send button and input', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
     await user.click(screen.getByRole('button', { name: /skip for now/i }))
     expect(
       screen.getByPlaceholderText(/ask about your disney trip/i)
@@ -69,7 +78,7 @@ describe('App', () => {
         })
       )
     )
-    render(<App />)
+    renderApp()
     await user.click(screen.getByRole('button', { name: /skip for now/i }))
     const input = screen.getByPlaceholderText(/ask about your disney trip/i)
     await user.type(input, 'When is the best time to visit?')
@@ -154,7 +163,7 @@ describe('App', () => {
         return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
       })
     )
-    render(<App />)
+    renderApp()
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /sign in/i }))
     expect(

@@ -284,3 +284,272 @@ def build_itinerary_pdf(
 
     doc.build(story)
     return buffer.getvalue()
+
+
+def normalize_structured_itinerary(data: Any) -> dict[str, Any]:
+    """Coerce LLM output into the structured timeline schema."""
+    if not isinstance(data, dict):
+        return {"summary": "", "days": []}
+    summary = str(data.get("summary") or "").strip()
+    days_out: list[dict[str, Any]] = []
+    for d in data.get("days") or []:
+        if not isinstance(d, dict):
+            continue
+        blocks_out: list[dict[str, Any]] = []
+        for b in d.get("blocks") or []:
+            if not isinstance(b, dict):
+                continue
+            period = str(b.get("period") or "morning").lower()
+            if period not in ("morning", "afternoon", "evening"):
+                period = "morning"
+            items_out: list[dict[str, Any]] = []
+            for it in b.get("items") or []:
+                if not isinstance(it, dict):
+                    continue
+                try:
+                    w = int(it.get("estimated_wait_minutes", 20))
+                except (TypeError, ValueError):
+                    w = 20
+                items_out.append(
+                    {
+                        "name": str(it.get("name") or "Experience").strip() or "Experience",
+                        "estimated_wait_minutes": max(0, min(w, 300)),
+                        "walking_tip": str(it.get("walking_tip") or "").strip(),
+                    }
+                )
+            blocks_out.append(
+                {
+                    "period": period,
+                    "items": items_out[:3],
+                }
+            )
+        days_out.append(
+            {
+                "date": str(d.get("date") or "").strip(),
+                "park_name": str(d.get("park_name") or "").strip() or "Park TBD",
+                "blocks": blocks_out[:3],
+            }
+        )
+    return {"summary": summary, "days": days_out}
+
+
+def generate_structured_itinerary_from_trip(
+    trip_info: Optional[dict[str, Any]],
+    shortest_waits: Optional[list[dict[str, Any]]] = None,
+) -> dict[str, Any]:
+    """
+    Single structured LLM request: day-by-day plan with blocks and wait estimates.
+    """
+    if ai_mod.AI_PROVIDER == "groq" and not ai_mod.GROQ_API_KEY:
+        raise RuntimeError("Set GROQ_API_KEY in the backend to generate an itinerary.")
+    if ai_mod.AI_PROVIDER == "gemini" and not ai_mod.GEMINI_API_KEY:
+        raise RuntimeError("Set GEMINI_API_KEY in the backend to generate an itinerary.")
+
+    trip_blob = json.dumps(trip_info or {}, indent=2)
+    waits_blob = ""
+    if shortest_waits:
+        waits_blob = json.dumps(shortest_waits[:15], indent=2)
+
+    system = (
+        "You are a Disney parks planning expert. Build a practical day-by-day touring plan "
+        "as JSON only. Use the trip's arrival_date and departure_date to list every calendar day "
+        "in range (inclusive), each with date YYYY-MM-DD. "
+        "For each day assign one primary park_name (use Walt Disney World park names: Magic Kingdom, "
+        "EPCOT, Disney's Hollywood Studios, Disney's Animal Kingdom, Disney Springs, water parks as fits). "
+        "Spread parks according to parks_planned and park_schedule_notes when present. "
+        "Each day has exactly three blocks: morning, afternoon, evening (use those strings for period). "
+        "Each block has 2-3 items. Each item must have: name (ride/show/meal/snack), "
+        "estimated_wait_minutes (integer, realistic for that time of day), "
+        "walking_tip (one short sentence: routing, Genie+ tip, or rest advice). "
+        "Return ONLY valid JSON with this exact shape:\n"
+        '{"summary":"2-4 sentences overview","days":['
+        '{"date":"YYYY-MM-DD","park_name":"string",'
+        '"blocks":['
+        '{"period":"morning","items":['
+        '{"name":"string","estimated_wait_minutes":25,"walking_tip":"string"}'
+        "]}"
+        "]}"
+        "]}\n"
+        "No markdown, no commentary outside JSON."
+    )
+    user = (
+        f"Trip details (JSON):\n{trip_blob}\n\n"
+        f"Optional context — sample of shorter standby waits today (names may help you "
+        f"estimate crowds; not exhaustive):\n{waits_blob or '[]'}"
+    )
+
+    if ai_mod.AI_PROVIDER == "groq":
+        from openai import OpenAI
+
+        client = OpenAI(
+            base_url="https://api.groq.com/openai/v1",
+            api_key=ai_mod.GROQ_API_KEY,
+        )
+        resp = client.chat.completions.create(
+            model=ai_mod.GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            max_tokens=4096,
+            temperature=0.35,
+            response_format={"type": "json_object"},
+        )
+        raw = (resp.choices[0].message.content or "").strip()
+    else:
+        from google import genai
+        from google.genai.types import Content, GenerateContentConfig, Part
+
+        client = genai.Client(api_key=ai_mod.GEMINI_API_KEY)
+        resp = client.models.generate_content(
+            model=ai_mod.GEMINI_MODEL,
+            contents=[
+                Content(
+                    role="user",
+                    parts=[Part(text=user)],
+                )
+            ],
+            config=GenerateContentConfig(
+                system_instruction=system,
+                max_output_tokens=4096,
+                temperature=0.35,
+                response_mime_type="application/json",
+            ),
+        )
+        raw = (resp.text or "").strip()
+
+    parsed = _extract_json_object(raw)
+    return normalize_structured_itinerary(parsed)
+
+
+def build_structured_itinerary_pdf(
+    trip_info: Optional[dict[str, Any]],
+    itinerary: dict[str, Any],
+) -> bytes:
+    """Build PDF from structured timeline JSON (ReportLab)."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=0.75 * inch,
+        leftMargin=0.75 * inch,
+        topMargin=0.65 * inch,
+        bottomMargin=0.65 * inch,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        name="StructTitle",
+        parent=styles["Heading1"],
+        fontSize=18,
+        textColor=colors.HexColor("#1a365d"),
+        spaceAfter=12,
+    )
+    heading_style = ParagraphStyle(
+        name="StructDay",
+        parent=styles["Heading2"],
+        fontSize=13,
+        textColor=colors.HexColor("#2c5282"),
+        spaceBefore=12,
+        spaceAfter=6,
+    )
+    sub_style = ParagraphStyle(
+        name="StructBlock",
+        parent=styles["Heading3"],
+        fontSize=11,
+        textColor=colors.HexColor("#2d3748"),
+        spaceBefore=8,
+        spaceAfter=4,
+    )
+    body_style = ParagraphStyle(
+        name="StructBody",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=12,
+    )
+    label_style = ParagraphStyle(
+        name="StructLabel",
+        parent=styles["Normal"],
+        fontSize=9,
+        textColor=colors.HexColor("#4a5568"),
+    )
+
+    story: list[Any] = []
+    story.append(Paragraph("Mouse Mentor — Your day-by-day plan", title_style))
+    story.append(Spacer(1, 0.08 * inch))
+
+    for label, value in _format_trip_header(trip_info):
+        story.append(
+            Paragraph(
+                f"<b>{escape(label)}:</b> {escape(value)}",
+                label_style,
+            ),
+        )
+        story.append(Spacer(1, 0.05 * inch))
+
+    story.append(Spacer(1, 0.1 * inch))
+    summary = (itinerary.get("summary") or "").strip()
+    if summary:
+        story.append(Paragraph("<b>Overview</b>", heading_style))
+        sum_safe = escape(summary).replace("\n", "<br/>")
+        story.append(Paragraph(sum_safe, body_style))
+        story.append(Spacer(1, 0.08 * inch))
+
+    period_labels = {
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening",
+    }
+
+    for day in itinerary.get("days") or []:
+        if not isinstance(day, dict):
+            continue
+        dlabel = str(day.get("date") or "").strip()
+        pk = str(day.get("park_name") or "").strip()
+        story.append(
+            Paragraph(
+                escape(f"{dlabel} — {pk}" if dlabel else pk or "Day"),
+                heading_style,
+            )
+        )
+        for block in day.get("blocks") or []:
+            if not isinstance(block, dict):
+                continue
+            period = str(block.get("period") or "").lower()
+            pl = period_labels.get(period, period.capitalize())
+            story.append(Paragraph(f"<b>{escape(pl)}</b>", sub_style))
+            for it in block.get("items") or []:
+                if not isinstance(it, dict):
+                    continue
+                nm = escape(str(it.get("name") or "").strip())
+                try:
+                    wm = int(it.get("estimated_wait_minutes", 0))
+                except (TypeError, ValueError):
+                    wm = 0
+                tip = escape(str(it.get("walking_tip") or "").strip())
+                line = f"• <b>{nm}</b> — ~{wm} min wait"
+                story.append(Paragraph(line, body_style))
+                if tip:
+                    story.append(
+                        Paragraph(
+                            f"&nbsp;&nbsp;<i>Tip:</i> {tip}",
+                            body_style,
+                        )
+                    )
+            story.append(Spacer(1, 0.06 * inch))
+
+    story.append(Spacer(1, 0.15 * inch))
+    story.append(
+        Paragraph(
+            "<i>Generated by Mouse Mentor. Verify hours, reservations, and official Disney info "
+            "before your trip.</i>",
+            ParagraphStyle(
+                name="StructFooter",
+                parent=styles["Normal"],
+                fontSize=8,
+                textColor=colors.grey,
+            ),
+        )
+    )
+
+    doc.build(story)
+    return buffer.getvalue()

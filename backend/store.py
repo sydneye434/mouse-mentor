@@ -37,6 +37,35 @@ async def get_trip(session: AsyncSession, user_id: int) -> Optional[dict[str, An
     return dict(row.trip_data)
 
 
+async def get_trip_bundle(
+    session: AsyncSession, user_id: int
+) -> Optional[dict[str, Any]]:
+    """Trip JSON plus optional structured itinerary from LLM."""
+    result = await session.execute(
+        select(SavedTrip).where(SavedTrip.user_id == user_id)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        return None
+    return {
+        "trip": dict(row.trip_data),
+        "generated_itinerary": row.generated_itinerary,
+    }
+
+
+async def set_generated_itinerary(
+    session: AsyncSession, user_id: int, itinerary: dict[str, Any]
+) -> None:
+    result = await session.execute(
+        select(SavedTrip).where(SavedTrip.user_id == user_id)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise ValueError("No saved trip for user")
+    row.generated_itinerary = itinerary
+    await session.flush()
+
+
 async def delete_trip(session: AsyncSession, user_id: int) -> None:
     result = await session.execute(
         select(SavedTrip).where(SavedTrip.user_id == user_id)
