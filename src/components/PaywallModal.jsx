@@ -129,7 +129,12 @@ export default function PaywallModal({
           <Button type="button" onClick={handleUnlock} disabled={loading}>
             {loading ? 'Redirecting…' : 'Unlock Pro'}
           </Button>
-          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={loading}
+          >
             Not now
           </Button>
         </div>

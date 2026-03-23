@@ -37,6 +37,11 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    dining_alerts: Mapped[list["DiningAlert"]] = relationship(
+        "DiningAlert",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class SavedTrip(Base):
@@ -90,3 +95,50 @@ class StoredChatMessage(Base):
     seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     user: Mapped[User] = relationship("User", back_populates="chat_messages")
+
+
+class DiningAlert(Base):
+    """User-configured dining reservation availability watch."""
+
+    __tablename__ = "dining_alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    restaurant: Mapped[str] = mapped_column(String(255), nullable=False)
+    restaurant_slug: Mapped[str] = mapped_column(String(255), nullable=False)
+    reservation_date: Mapped[str] = mapped_column(String(16), nullable=False)
+    party_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    time_windows: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    user: Mapped[User] = relationship("User", back_populates="dining_alerts")
+    poll_logs: Mapped[list["DiningPollLog"]] = relationship(
+        "DiningPollLog",
+        back_populates="alert",
+        cascade="all, delete-orphan",
+    )
+
+
+class DiningPollLog(Base):
+    """Audit log for dining availability poll attempts."""
+
+    __tablename__ = "dining_poll_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    alert_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("dining_alerts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    alert: Mapped[Optional[DiningAlert]] = relationship(
+        "DiningAlert", back_populates="poll_logs"
+    )

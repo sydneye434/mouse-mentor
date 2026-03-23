@@ -15,7 +15,7 @@ from typing import List, Optional
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -31,6 +31,10 @@ import lightning_lane_guide as ll_guide
 import store
 import trip_tips
 import wait_times
+import dining_alerts_store as dining_alerts_store
+import dining_suggest_times
+from dining_poll import start_dining_poll_task, stop_dining_poll_task
+from dining_restaurants_list import ALLOWED_SLUGS
 from ai import (
     CHAT_HISTORY_WINDOW,
     summarize_conversation_messages,
@@ -63,7 +67,11 @@ def _cors_origins() -> List[str]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    yield
+    poll_task = start_dining_poll_task()
+    try:
+        yield
+    finally:
+        await stop_dining_poll_task(poll_task)
 
 
 app = FastAPI(title="Mouse Mentor API", lifespan=lifespan)
@@ -240,6 +248,20 @@ class TipsGenerateRequest(BaseModel):
 
     trip_info: TripInfo
     regenerate: bool = False
+
+
+class DiningSuggestTimesRequest(BaseModel):
+    restaurant: str
+    date: str
+    trip_info: TripInfo
+
+
+class DiningAlertCreateRequest(BaseModel):
+    restaurant: str
+    restaurant_slug: str
+    date: str
+    party_size: int = Field(ge=1, le=20)
+    time_windows: list[str] = Field(min_length=1)
 
 
 def _sse_data(obj: dict) -> str:
@@ -623,6 +645,88 @@ async def patch_dining_preferences(
         want_to_go=body.want_to_go,
         reminder_enabled=body.reminder_enabled,
     )
+    return {"ok": True}
+
+
+@app.post("/dining/suggest-times")
+@limiter.limit("30/hour")
+async def dining_suggest_times_endpoint(
+    request: Request,
+    body: DiningSuggestTimesRequest,
+):
+    """AI-ranked time windows for a restaurant + trip day (no auth; rate limited)."""
+    trip_dict = body.trip_info.model_dump()
+    try:
+        suggestions = await asyncio.to_thread(
+            dining_suggest_times.suggest_dining_times,
+            body.restaurant.strip(),
+            body.date.strip(),
+            trip_dict,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not suggest dining times: {e!s}",
+        ) from e
+    return {"suggestions": suggestions}
+
+
+@app.post("/dining/alerts")
+async def create_dining_alert(
+    body: DiningAlertCreateRequest,
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    slug = body.restaurant_slug.strip()
+    if slug not in ALLOWED_SLUGS:
+        raise HTTPException(status_code=400, detail="Unknown restaurant slug")
+    row = await dining_alerts_store.create_alert(
+        session,
+        user_id,
+        restaurant=body.restaurant.strip(),
+        restaurant_slug=slug,
+        reservation_date=body.date.strip(),
+        party_size=body.party_size,
+        time_windows=[t.strip() for t in body.time_windows if t.strip()],
+    )
+    return dining_alerts_store.alert_to_dict(row)
+
+
+@app.get("/dining/alerts")
+async def list_dining_alerts(
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    rows = await dining_alerts_store.list_active_alerts_for_user(session, user_id)
+    return {"alerts": [dining_alerts_store.alert_to_dict(r) for r in rows]}
+
+
+@app.delete("/dining/alerts/{alert_id}")
+async def delete_dining_alert(
+    alert_id: int,
+    user_id: int = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+):
+    ok = await dining_alerts_store.soft_delete_alert(session, user_id, alert_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"ok": True}
+
+
+@app.get("/dining/check-availability")
+async def dining_check_availability_trigger(
+    session: AsyncSession = Depends(get_session),
+    x_internal_key: Optional[str] = Header(None, alias="X-MouseMentor-Internal-Key"),
+):
+    """Optional manual trigger for the same logic as the background poller (internal key)."""
+    expected = os.environ.get("DINING_POLL_INTERNAL_KEY", "").strip()
+    if not expected or (x_internal_key or "").strip() != expected:
+        raise HTTPException(status_code=404, detail="Not found")
+    from dining_availability import poll_all_active_alerts
+
+    await poll_all_active_alerts(session)
     return {"ok": True}
 
 

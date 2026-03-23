@@ -12,6 +12,17 @@ export default defineConfig({
     proxy: {
       '/auth': { target: 'http://localhost:8000', changeOrigin: true },
       '/chat': { target: 'http://localhost:8000', changeOrigin: true },
+      // Proxy /dining/* API only — not exact /dining (SPA Dining picks page)
+      '/dining': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        bypass(req) {
+          const path = req.url?.split('?')[0] ?? ''
+          if (path === '/dining') return false
+          if (path.startsWith('/dining/')) return undefined
+          return undefined
+        },
+      },
       // Proxy GET/DELETE /trip and POST /trip/share only — not /trip/:token (SPA shared view)
       '/trip': {
         target: 'http://localhost:8000',
@@ -34,8 +45,14 @@ export default defineConfig({
       '/messages': { target: 'http://localhost:8000', changeOrigin: true },
       '/billing': { target: 'http://localhost:8000', changeOrigin: true },
       // API only — do not proxy GET /itinerary (SPA route)
-      '/itinerary/generate': { target: 'http://localhost:8000', changeOrigin: true },
-      '/itinerary/export-pdf': { target: 'http://localhost:8000', changeOrigin: true },
+      '/itinerary/generate': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/itinerary/export-pdf': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/lightning-lane-guide/generate': {
         target: 'http://localhost:8000',
         changeOrigin: true,

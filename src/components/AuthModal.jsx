@@ -154,11 +154,7 @@ export default function AuthModal({ onClose, onSuccess }) {
             </p>
           )}
           <div className="mt-1 flex gap-2">
-            <Button
-              type="submit"
-              className="min-w-0 flex-1"
-              disabled={loading}
-            >
+            <Button type="submit" className="min-w-0 flex-1" disabled={loading}>
               {loading
                 ? 'Please wait…'
                 : mode === 'login'

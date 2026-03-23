@@ -3,7 +3,13 @@
  * Main app: auth state, get-to-know-you flow, chat, and saved trip. Uses proxy in dev for API.
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Routes, Route, useNavigate, useLocation, NavLink } from 'react-router-dom'
+import {
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+  NavLink,
+} from 'react-router-dom'
 import { Wand2 } from 'lucide-react'
 import MickeyIcon from './MickeyIcon.jsx'
 import MickeyEarAvatar from './components/MickeyEarAvatar.jsx'
@@ -13,6 +19,7 @@ import DashboardHome from './components/DashboardHome.jsx'
 import ItineraryPage from './components/ItineraryPage.jsx'
 import LightningLaneGuidePage from './components/LightningLaneGuidePage.jsx'
 import DiningPage from './components/DiningPage.jsx'
+import DiningAlerts from './components/DiningAlerts.jsx'
 import TripSummary from './components/TripSummary.jsx'
 import AuthModal from './components/AuthModal.jsx'
 import PaywallModal from './components/PaywallModal.jsx'
@@ -483,13 +490,11 @@ export default function App() {
           const wr = await fetch(`${API_BASE}/wait-times`)
           if (wr.ok) {
             const wd = await wr.json()
-            shortestWaits = (wd.top10_shortest ?? []).slice(0, 10).map(
-              (w) => ({
-                name: w.name,
-                wait_minutes: w.wait_minutes,
-                park_name: w.park_name,
-              })
-            )
+            shortestWaits = (wd.top10_shortest ?? []).slice(0, 10).map((w) => ({
+              name: w.name,
+              wait_minutes: w.wait_minutes,
+              park_name: w.park_name,
+            }))
           }
         } catch {
           /* optional context */
@@ -507,15 +512,15 @@ export default function App() {
         })
         if (res.status === 401) {
           handleLogout()
-          throw new Error('You were signed out. Sign in again to save your plan.')
+          throw new Error(
+            'You were signed out. Sign in again to save your plan.'
+          )
         }
         if (!res.ok) {
           const errJson = await res.json().catch(() => ({}))
           const detail = errJson.detail
           const msg =
-            typeof detail === 'string'
-              ? detail
-              : 'Could not generate itinerary'
+            typeof detail === 'string' ? detail : 'Could not generate itinerary'
           throw new Error(msg)
         }
         const data = await res.json()
@@ -567,10 +572,7 @@ export default function App() {
         const data = await res.json()
         setLightningGuide(data.guide)
         try {
-          localStorage.setItem(
-            LL_GUIDE_STORAGE_KEY,
-            JSON.stringify(data.guide)
-          )
+          localStorage.setItem(LL_GUIDE_STORAGE_KEY, JSON.stringify(data.guide))
         } catch {}
       } catch (e) {
         llAutoRequestedRef.current = false
@@ -649,9 +651,7 @@ export default function App() {
         const errJson = await res.json().catch(() => ({}))
         const detail = errJson.detail
         throw new Error(
-          typeof detail === 'string'
-            ? detail
-            : 'Could not generate dining list'
+          typeof detail === 'string' ? detail : 'Could not generate dining list'
         )
       }
       const data = await res.json()
@@ -691,9 +691,7 @@ export default function App() {
       else if (!res.ok) {
         const errJson = await res.json().catch(() => ({}))
         setDiningError(
-          typeof errJson.detail === 'string'
-            ? errJson.detail
-            : 'Could not save'
+          typeof errJson.detail === 'string' ? errJson.detail : 'Could not save'
         )
       }
     } catch (e) {
@@ -833,9 +831,7 @@ export default function App() {
         const errJson = await res.json().catch(() => ({}))
         const detail = errJson.detail
         const msg =
-          typeof detail === 'string'
-            ? detail
-            : `Export failed (${res.status})`
+          typeof detail === 'string' ? detail : `Export failed (${res.status})`
         throw new Error(msg)
       }
       const blob = await res.blob()
@@ -870,7 +866,9 @@ export default function App() {
       throw new Error('Session expired. Sign in again.')
     }
     if (res.status === 404) {
-      throw new Error('Save your trip on your account first to get a share link.')
+      throw new Error(
+        'Save your trip on your account first to get a share link.'
+      )
     }
     if (!res.ok) {
       throw new Error('Could not create a share link.')
@@ -884,9 +882,7 @@ export default function App() {
     try {
       await navigator.clipboard.writeText(url)
     } catch {
-      throw new Error(
-        `Could not copy automatically. Share this link: ${url}`
-      )
+      throw new Error(`Could not copy automatically. Share this link: ${url}`)
     }
   }
 
@@ -1609,6 +1605,14 @@ export default function App() {
                 >
                   Dining
                 </NavLink>
+                <NavLink
+                  to="/dining-alerts"
+                  className={({ isActive }) =>
+                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`
+                  }
+                >
+                  Dining Alerts
+                </NavLink>
               </div>
             ) : (
               <div className="flex shrink-0 flex-wrap items-center gap-3 md:gap-4">
@@ -1633,6 +1637,14 @@ export default function App() {
                   }
                 >
                   Dining
+                </NavLink>
+                <NavLink
+                  to="/dining-alerts"
+                  className={({ isActive }) =>
+                    `header__nav-link ${isActive ? 'header__nav-link--active' : ''}`
+                  }
+                >
+                  Dining Alerts
                 </NavLink>
               </div>
             )}
@@ -1728,6 +1740,17 @@ export default function App() {
             }
           />
           <Route
+            path="/dining-alerts"
+            element={
+              <DiningAlerts
+                tripInfo={tripInfo}
+                user={user}
+                apiBase={API_BASE}
+                onOpenAuth={() => setShowAuthModal(true)}
+              />
+            }
+          />
+          <Route
             path="/dining"
             element={
               <DiningPage
@@ -1752,319 +1775,348 @@ export default function App() {
             path="/*"
             element={
               <>
-        {showTripForm && (
-          <GetToKnowYou
-            initialTrip={tripInfo}
-            initialSaveTripData={saveTripData}
-            isLoggedIn={!!user}
-            onOpenAuth={() => setShowAuthModal(true)}
-            onSubmit={handleTripSubmit}
-            onSkip={() => setShowTripForm(false)}
-          />
-        )}
-
-        {showHub && !showTripForm && (
-          <DashboardHome
-            tripInfo={tripInfo}
-            user={user}
-            saveTripData={saveTripData}
-            aiTips={dashboardTips}
-            tipsLoading={tipsLoading}
-            onRegenerateTips={handleRegenerateDashboardTips}
-            onRetryTips={handleRetryDashboardTips}
-            waitTimesData={waitTimesData}
-            waitTimesLoading={waitTimesLoading}
-            waitTimesError={waitTimesError}
-            onRefreshWaits={fetchWaitTimes}
-            onAskGuide={goToChat}
-            onItineraryPreview={handleItineraryFromHub}
-            onOpenLightningLaneGuide={() => navigate('/lightning-lane-guide')}
-            onOpenDining={() => navigate('/dining')}
-            onPlanTrip={() => setShowTripForm(true)}
-            onEditTrip={() => setShowTripForm(true)}
-            onShareTrip={handleShareTrip}
-          />
-        )}
-
-        {!showHub && tripInfo && !showTripForm && (
-          <TripSummary trip={tripInfo} onEdit={() => setShowTripForm(true)} />
-        )}
-
-        {!showHub && !showTripForm && (
-          <div className="wait-times-panel">
-            <button
-              type="button"
-              className="wait-times-panel__toggle"
-              onClick={() => setWaitPanelOpen((o) => !o)}
-              aria-expanded={waitPanelOpen}
-            >
-              <span className="wait-times-panel__toggle-label">
-                Walt Disney World wait times
-              </span>
-              <span className="wait-times-panel__chevron" aria-hidden>
-                {waitPanelOpen ? '▼' : '▶'}
-              </span>
-            </button>
-            {waitPanelOpen && (
-              <div className="wait-times-panel__body">
-                <div className="wait-times-panel__toolbar">
-                  <button
-                    type="button"
-                    className="wait-times-panel__refresh"
-                    onClick={() => fetchWaitTimes(true)}
-                    disabled={waitTimesLoading}
-                  >
-                    {waitTimesLoading ? 'Refreshing…' : 'Refresh'}
-                  </button>
-                  {waitTimesData?.cached && (
-                    <span className="wait-times-panel__meta">(cached)</span>
-                  )}
-                  {waitTimesData?.fetched_at && (
-                    <span className="wait-times-panel__meta">
-                      {new Date(waitTimesData.fetched_at).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-                {waitTimesError && (
-                  <p className="wait-times-panel__error">{waitTimesError}</p>
-                )}
-                {waitTimesLoading && !waitTimesData && (
-                  <p className="wait-times-panel__loading">Loading waits…</p>
-                )}
-                {waitTimesData?.parks?.map((park) => (
-                  <div key={park.park_name} className="wait-times-park">
-                    <h3 className="wait-times-park__name">{park.park_name}</h3>
-                    <ul className="wait-times-park__list">
-                      {park.rides?.map((ride) => (
-                        <li key={`${park.park_name}-${ride.name}`}>
-                          <span className="wait-times-ride__name">
-                            {ride.name}
-                          </span>
-                          <span className="wait-times-ride__wait">
-                            {ride.wait_minutes != null
-                              ? `${ride.wait_minutes} min`
-                              : '—'}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-                {waitTimesData &&
-                  !waitTimesLoading &&
-                  (!waitTimesData.parks || waitTimesData.parks.length === 0) &&
-                  !waitTimesError && (
-                    <p className="wait-times-panel__empty">
-                      No standby waits reported right now.
-                    </p>
-                  )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!showHub && !showTripForm && saveTripData && (
-          <div
-            className="save-notice"
-            role="region"
-            aria-labelledby="save-notice-heading"
-          >
-            <p id="save-notice-heading" className="save-notice__message">
-              FYI — you chose to save your data on the backend, so we are.
-              <span className="info-icon-wrap">
-                <button
-                  type="button"
-                  className="info-icon"
-                  aria-label="How is my saved data linked to me?"
-                >
-                  ℹ
-                </button>
-                <span className="info-icon-tooltip" role="tooltip">
-                  Your saved trip is stored on our servers and linked to your
-                  account. Only you can see or delete it. We don&apos;t use your
-                  IP address; access is tied to your sign-in.
-                </span>
-              </span>
-            </p>
-            {!showDeleteConfirm ? (
-              <button
-                type="button"
-                className="save-notice__delete-link"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                Delete my saved data
-              </button>
-            ) : (
-              <div className="save-notice__delete-confirm">
-                <label className="save-notice__delete-label">
-                  <input
-                    type="checkbox"
-                    checked={deleteConfirmChecked}
-                    onChange={(e) => setDeleteConfirmChecked(e.target.checked)}
+                {showTripForm && (
+                  <GetToKnowYou
+                    initialTrip={tripInfo}
+                    initialSaveTripData={saveTripData}
+                    isLoggedIn={!!user}
+                    onOpenAuth={() => setShowAuthModal(true)}
+                    onSubmit={handleTripSubmit}
+                    onSkip={() => setShowTripForm(false)}
                   />
-                  <span>
-                    Yes, really delete all my data from the backend servers
-                  </span>
-                </label>
-                <div className="save-notice__delete-actions">
-                  <button
-                    type="button"
-                    className="save-notice__delete-cancel"
-                    onClick={() => {
-                      setShowDeleteConfirm(false)
-                      setDeleteConfirmChecked(false)
-                    }}
+                )}
+
+                {showHub && !showTripForm && (
+                  <DashboardHome
+                    tripInfo={tripInfo}
+                    user={user}
+                    saveTripData={saveTripData}
+                    aiTips={dashboardTips}
+                    tipsLoading={tipsLoading}
+                    onRegenerateTips={handleRegenerateDashboardTips}
+                    onRetryTips={handleRetryDashboardTips}
+                    waitTimesData={waitTimesData}
+                    waitTimesLoading={waitTimesLoading}
+                    waitTimesError={waitTimesError}
+                    onRefreshWaits={fetchWaitTimes}
+                    onAskGuide={goToChat}
+                    onItineraryPreview={handleItineraryFromHub}
+                    onOpenLightningLaneGuide={() =>
+                      navigate('/lightning-lane-guide')
+                    }
+                    onOpenDining={() => navigate('/dining')}
+                    onPlanTrip={() => setShowTripForm(true)}
+                    onEditTrip={() => setShowTripForm(true)}
+                    onShareTrip={handleShareTrip}
+                  />
+                )}
+
+                {!showHub && tripInfo && !showTripForm && (
+                  <TripSummary
+                    trip={tripInfo}
+                    onEdit={() => setShowTripForm(true)}
+                  />
+                )}
+
+                {!showHub && !showTripForm && (
+                  <div className="wait-times-panel">
+                    <button
+                      type="button"
+                      className="wait-times-panel__toggle"
+                      onClick={() => setWaitPanelOpen((o) => !o)}
+                      aria-expanded={waitPanelOpen}
+                    >
+                      <span className="wait-times-panel__toggle-label">
+                        Walt Disney World wait times
+                      </span>
+                      <span className="wait-times-panel__chevron" aria-hidden>
+                        {waitPanelOpen ? '▼' : '▶'}
+                      </span>
+                    </button>
+                    {waitPanelOpen && (
+                      <div className="wait-times-panel__body">
+                        <div className="wait-times-panel__toolbar">
+                          <button
+                            type="button"
+                            className="wait-times-panel__refresh"
+                            onClick={() => fetchWaitTimes(true)}
+                            disabled={waitTimesLoading}
+                          >
+                            {waitTimesLoading ? 'Refreshing…' : 'Refresh'}
+                          </button>
+                          {waitTimesData?.cached && (
+                            <span className="wait-times-panel__meta">
+                              (cached)
+                            </span>
+                          )}
+                          {waitTimesData?.fetched_at && (
+                            <span className="wait-times-panel__meta">
+                              {new Date(
+                                waitTimesData.fetched_at
+                              ).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        {waitTimesError && (
+                          <p className="wait-times-panel__error">
+                            {waitTimesError}
+                          </p>
+                        )}
+                        {waitTimesLoading && !waitTimesData && (
+                          <p className="wait-times-panel__loading">
+                            Loading waits…
+                          </p>
+                        )}
+                        {waitTimesData?.parks?.map((park) => (
+                          <div key={park.park_name} className="wait-times-park">
+                            <h3 className="wait-times-park__name">
+                              {park.park_name}
+                            </h3>
+                            <ul className="wait-times-park__list">
+                              {park.rides?.map((ride) => (
+                                <li key={`${park.park_name}-${ride.name}`}>
+                                  <span className="wait-times-ride__name">
+                                    {ride.name}
+                                  </span>
+                                  <span className="wait-times-ride__wait">
+                                    {ride.wait_minutes != null
+                                      ? `${ride.wait_minutes} min`
+                                      : '—'}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                        {waitTimesData &&
+                          !waitTimesLoading &&
+                          (!waitTimesData.parks ||
+                            waitTimesData.parks.length === 0) &&
+                          !waitTimesError && (
+                            <p className="wait-times-panel__empty">
+                              No standby waits reported right now.
+                            </p>
+                          )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!showHub && !showTripForm && saveTripData && (
+                  <div
+                    className="save-notice"
+                    role="region"
+                    aria-labelledby="save-notice-heading"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="save-notice__delete-btn"
-                    disabled={!deleteConfirmChecked || deleting}
-                    onClick={handleDeleteSavedData}
+                    <p
+                      id="save-notice-heading"
+                      className="save-notice__message"
+                    >
+                      FYI — you chose to save your data on the backend, so we
+                      are.
+                      <span className="info-icon-wrap">
+                        <button
+                          type="button"
+                          className="info-icon"
+                          aria-label="How is my saved data linked to me?"
+                        >
+                          ℹ
+                        </button>
+                        <span className="info-icon-tooltip" role="tooltip">
+                          Your saved trip is stored on our servers and linked to
+                          your account. Only you can see or delete it. We
+                          don&apos;t use your IP address; access is tied to your
+                          sign-in.
+                        </span>
+                      </span>
+                    </p>
+                    {!showDeleteConfirm ? (
+                      <button
+                        type="button"
+                        className="save-notice__delete-link"
+                        onClick={() => setShowDeleteConfirm(true)}
+                      >
+                        Delete my saved data
+                      </button>
+                    ) : (
+                      <div className="save-notice__delete-confirm">
+                        <label className="save-notice__delete-label">
+                          <input
+                            type="checkbox"
+                            checked={deleteConfirmChecked}
+                            onChange={(e) =>
+                              setDeleteConfirmChecked(e.target.checked)
+                            }
+                          />
+                          <span>
+                            Yes, really delete all my data from the backend
+                            servers
+                          </span>
+                        </label>
+                        <div className="save-notice__delete-actions">
+                          <button
+                            type="button"
+                            className="save-notice__delete-cancel"
+                            onClick={() => {
+                              setShowDeleteConfirm(false)
+                              setDeleteConfirmChecked(false)
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="save-notice__delete-btn"
+                            disabled={!deleteConfirmChecked || deleting}
+                            onClick={handleDeleteSavedData}
+                          >
+                            {deleting ? 'Deleting…' : 'Delete'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!showHub && (
+                  <div className="messages flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-1">
+                    {messages.length === 0 && !showTripForm && (
+                      <div className="flex min-h-[16rem] flex-col items-center justify-center px-4 text-center text-[var(--color-text-muted)]">
+                        <MickeyIcon
+                          className="empty-state-icon mb-5"
+                          size={44}
+                        />
+                        <p className="m-0 text-base leading-relaxed">
+                          Ask me anything about your Disney adventure.
+                        </p>
+                        <p className="mt-2 max-w-sm text-sm opacity-90">
+                          Parks, resorts, dining & more—I’ll use your trip
+                          details to make it magical.
+                        </p>
+                      </div>
+                    )}
+                    {messages.length === 0 && showTripForm && (
+                      <div className="flex min-h-[6rem] flex-col items-center justify-center px-4 text-center text-sm text-[var(--color-text-muted)]">
+                        <p className="m-0 max-w-sm">
+                          Answer a few quick questions so we can make your visit
+                          magical—or skip to start chatting.
+                        </p>
+                      </div>
+                    )}
+                    {messages.map((msg) =>
+                      msg.role === 'user' ? (
+                        <div
+                          key={msg.id}
+                          className="flex max-w-[min(88%,32rem)] flex-col self-end"
+                        >
+                          <div
+                            className="bg-[var(--color-lilac-strong)] px-4 py-3 text-[var(--color-text-on-primary)] shadow-sm"
+                            style={{ borderRadius: 'var(--radius-msg-user)' }}
+                          >
+                            <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-white/80">
+                              You
+                            </span>
+                            <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                              {msg.text}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          key={msg.id}
+                          className="flex max-w-[min(92%,36rem)] flex-row items-end gap-2 self-start"
+                        >
+                          <MickeyEarAvatar size={36} />
+                          <div
+                            className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-lilac-light)] px-4 py-3 shadow-sm ring-1 ring-[var(--color-border)]/80"
+                            style={{
+                              borderRadius: 'var(--radius-msg-assistant)',
+                            }}
+                          >
+                            <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                              Assistant
+                            </span>
+                            <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--color-text-heading)]">
+                              {msg.text}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    )}
+                    <div ref={messagesEndRef} aria-hidden />
+                  </div>
+                )}
+
+                {!showHub && !showTripForm && messages.length > 0 && (
+                  <div className="export-itinerary-row">
+                    <button
+                      type="button"
+                      className="export-itinerary-btn"
+                      onClick={handleMultiDayPlan}
+                      disabled={loading || exporting || clearingChat}
+                    >
+                      Multi-day plan
+                    </button>
+                    <button
+                      type="button"
+                      className="export-itinerary-btn"
+                      onClick={handleExportItinerary}
+                      disabled={loading || exporting || clearingChat}
+                    >
+                      {exporting ? 'Exporting…' : 'Export Itinerary'}
+                    </button>
+                    {user?.token && saveTripData && (
+                      <button
+                        type="button"
+                        className="clear-conversation-btn"
+                        onClick={handleClearConversation}
+                        disabled={loading || exporting || clearingChat}
+                      >
+                        {clearingChat ? 'Clearing…' : 'Clear conversation'}
+                      </button>
+                    )}
+                    {exportError && (
+                      <span className="export-itinerary-error" role="alert">
+                        {exportError}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {!showHub && !showTripForm && (
+                  <form
+                    className="input-area mt-2 flex shrink-0 gap-2 border-t border-[var(--color-border)] pt-4"
+                    onSubmit={handleSubmit}
                   >
-                    {deleting ? 'Deleting…' : 'Delete'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {!showHub && (
-        <div className="messages flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-1">
-          {messages.length === 0 && !showTripForm && (
-            <div className="flex min-h-[16rem] flex-col items-center justify-center px-4 text-center text-[var(--color-text-muted)]">
-              <MickeyIcon className="empty-state-icon mb-5" size={44} />
-              <p className="m-0 text-base leading-relaxed">
-                Ask me anything about your Disney adventure.
-              </p>
-              <p className="mt-2 max-w-sm text-sm opacity-90">
-                Parks, resorts, dining & more—I’ll use your trip details to make
-                it magical.
-              </p>
-            </div>
-          )}
-          {messages.length === 0 && showTripForm && (
-            <div className="flex min-h-[6rem] flex-col items-center justify-center px-4 text-center text-sm text-[var(--color-text-muted)]">
-              <p className="m-0 max-w-sm">
-                Answer a few quick questions so we can make your visit
-                magical—or skip to start chatting.
-              </p>
-            </div>
-          )}
-          {messages.map((msg) =>
-            msg.role === 'user' ? (
-              <div
-                key={msg.id}
-                className="flex max-w-[min(88%,32rem)] flex-col self-end"
-              >
-                <div
-                  className="bg-[var(--color-lilac-strong)] px-4 py-3 text-[var(--color-text-on-primary)] shadow-sm"
-                  style={{ borderRadius: 'var(--radius-msg-user)' }}
-                >
-                  <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-white/80">
-                    You
-                  </span>
-                  <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                    {msg.text}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div
-                key={msg.id}
-                className="flex max-w-[min(92%,36rem)] flex-row items-end gap-2 self-start"
-              >
-                <MickeyEarAvatar size={36} />
-                <div
-                  className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-lilac-light)] px-4 py-3 shadow-sm ring-1 ring-[var(--color-border)]/80"
-                  style={{ borderRadius: 'var(--radius-msg-assistant)' }}
-                >
-                  <span className="mb-1 block text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                    Assistant
-                  </span>
-                  <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--color-text-heading)]">
-                    {msg.text}
-                  </p>
-                </div>
-              </div>
-            )
-          )}
-          <div ref={messagesEndRef} aria-hidden />
-        </div>
-        )}
-
-        {!showHub && !showTripForm && messages.length > 0 && (
-          <div className="export-itinerary-row">
-            <button
-              type="button"
-              className="export-itinerary-btn"
-              onClick={handleMultiDayPlan}
-              disabled={loading || exporting || clearingChat}
-            >
-              Multi-day plan
-            </button>
-            <button
-              type="button"
-              className="export-itinerary-btn"
-              onClick={handleExportItinerary}
-              disabled={loading || exporting || clearingChat}
-            >
-              {exporting ? 'Exporting…' : 'Export Itinerary'}
-            </button>
-            {user?.token && saveTripData && (
-              <button
-                type="button"
-                className="clear-conversation-btn"
-                onClick={handleClearConversation}
-                disabled={loading || exporting || clearingChat}
-              >
-                {clearingChat ? 'Clearing…' : 'Clear conversation'}
-              </button>
-            )}
-            {exportError && (
-              <span className="export-itinerary-error" role="alert">
-                {exportError}
-              </span>
-            )}
-          </div>
-        )}
-
-        {!showHub && !showTripForm && (
-          <form
-            className="input-area mt-2 flex shrink-0 gap-2 border-t border-[var(--color-border)] pt-4"
-            onSubmit={handleSubmit}
-          >
-            <TextField
-              compact
-              type="text"
-              className="min-w-0 flex-1"
-              inputClassName="rounded-full py-3"
-              placeholder="Ask about your Disney trip…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              autoComplete="off"
-              disabled={loading}
-            />
-            <button
-              type="submit"
-              className="send-btn"
-              aria-label="Send"
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="loading-dots" aria-hidden>
-                  <span />
-                  <span />
-                  <span />
-                </span>
-              ) : (
-                'Send'
-              )}
-            </button>
-          </form>
-        )}
+                    <TextField
+                      compact
+                      type="text"
+                      className="min-w-0 flex-1"
+                      inputClassName="rounded-full py-3"
+                      placeholder="Ask about your Disney trip…"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      autoComplete="off"
+                      disabled={loading}
+                    />
+                    <button
+                      type="submit"
+                      className="send-btn"
+                      aria-label="Send"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <span className="loading-dots" aria-hidden>
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                      ) : (
+                        'Send'
+                      )}
+                    </button>
+                  </form>
+                )}
               </>
             }
           />

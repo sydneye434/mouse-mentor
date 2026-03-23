@@ -32,9 +32,7 @@ function CountdownBanner({
   }
 
   const days =
-    serverDays != null
-      ? serverDays
-      : daysUntilBookingWindow(arrivalDate)
+    serverDays != null ? serverDays : daysUntilBookingWindow(arrivalDate)
 
   if (serverOpened) {
     return (
@@ -55,7 +53,8 @@ function CountdownBanner({
         stay.
         {serverOpensAt ? (
           <span className="mt-1 block text-xs opacity-90">
-            Reference: {new Date(serverOpensAt).toLocaleString(undefined, {
+            Reference:{' '}
+            {new Date(serverOpensAt).toLocaleString(undefined, {
               dateStyle: 'medium',
               timeStyle: 'short',
             })}
@@ -175,7 +174,10 @@ export default function DiningPage({
 
       {!user && (
         <p className="mb-6 text-xs text-[var(--color-text-muted)]">
-          <Link to="/" className="font-semibold text-[var(--color-lilac-strong)]">
+          <Link
+            to="/"
+            className="font-semibold text-[var(--color-lilac-strong)]"
+          >
             Sign in
           </Link>{' '}
           to save want-to-go and reminders to your account.
@@ -198,24 +200,26 @@ export default function DiningPage({
         </div>
       )}
 
-      {!loading && !generating && (!restaurants || restaurants.length === 0) && (
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-6 text-center">
-          <p className="m-0 text-sm text-[var(--color-text-muted)]">
-            {tripInfo
-              ? 'Generate your personalized list of first-timer-friendly restaurants.'
-              : 'Complete the trip planner first so we can tailor picks to your party.'}
-          </p>
-          {tripInfo && (
-            <button
-              type="button"
-              onClick={onGenerate}
-              className="mt-4 rounded-[var(--radius-pill)] bg-[var(--color-pink-mid)] px-6 py-2.5 text-sm font-semibold text-[var(--color-text-on-primary)]"
-            >
-              Generate list
-            </button>
-          )}
-        </div>
-      )}
+      {!loading &&
+        !generating &&
+        (!restaurants || restaurants.length === 0) && (
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-6 text-center">
+            <p className="m-0 text-sm text-[var(--color-text-muted)]">
+              {tripInfo
+                ? 'Generate your personalized list of first-timer-friendly restaurants.'
+                : 'Complete the trip planner first so we can tailor picks to your party.'}
+            </p>
+            {tripInfo && (
+              <button
+                type="button"
+                onClick={onGenerate}
+                className="mt-4 rounded-[var(--radius-pill)] bg-[var(--color-pink-mid)] px-6 py-2.5 text-sm font-semibold text-[var(--color-text-on-primary)]"
+              >
+                Generate list
+              </button>
+            )}
+          </div>
+        )}
 
       {restaurants && restaurants.length > 0 && (
         <ul className="m-0 space-y-4 p-0">

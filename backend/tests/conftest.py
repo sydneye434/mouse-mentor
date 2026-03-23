@@ -9,6 +9,7 @@ import os
 os.environ.setdefault("RATELIMIT_ENABLED", "false")
 # Fresh DB per pytest process (avoids UNIQUE email failures on reused ./local.db).
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+os.environ.setdefault("DISABLE_DINING_POLL", "true")
 
 from unittest.mock import AsyncMock, patch
 

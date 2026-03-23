@@ -239,8 +239,8 @@ export default function GetToKnowYou({
                   </h2>
                   <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
                     Pick your resort, trip dates, and every park you plan to
-                    visit. Add a day-by-day note if you already know it—we&apos;ll
-                    use this in every answer.
+                    visit. Add a day-by-day note if you already know
+                    it—we&apos;ll use this in every answer.
                   </p>
                   <SelectField
                     label="Resort destination"
@@ -307,8 +307,8 @@ export default function GetToKnowYou({
                     Who&apos;s in your group?
                   </h2>
                   <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                    Count each person once. We use this for rides, height
-                    rules, pacing, and dining.
+                    Count each person once. We use this for rides, height rules,
+                    pacing, and dining.
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     <TextField

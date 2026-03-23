@@ -118,10 +118,16 @@ export default function DashboardHome({
     DESTINATIONS.find((d) => d.value === tripInfo?.destination)?.label ??
     'Your Disney trip'
 
-  const days = tripInfo?.arrivalDate ? daysUntilArrival(tripInfo.arrivalDate) : null
+  const days = tripInfo?.arrivalDate
+    ? daysUntilArrival(tripInfo.arrivalDate)
+    : null
   const hasDates = !!(tripInfo?.arrivalDate && tripInfo?.departureDate)
   const canShare =
-    !!user?.token && saveTripData && tripInfo && hasDates && typeof onShareTrip === 'function'
+    !!user?.token &&
+    saveTripData &&
+    tripInfo &&
+    hasDates &&
+    typeof onShareTrip === 'function'
 
   async function handleShareClick() {
     if (!onShareTrip) return
@@ -136,8 +142,7 @@ export default function DashboardHome({
     }
   }
 
-  const shortest =
-    waitTimesData?.top10_shortest?.slice(0, 5) ?? []
+  const shortest = waitTimesData?.top10_shortest?.slice(0, 5) ?? []
 
   const showAiTipsSection = !!(user?.token && tripInfo && saveTripData)
   const visibleAiTips =
@@ -173,10 +178,15 @@ export default function DashboardHome({
               id="dash-trip-heading"
               className="flex items-center gap-2 font-display text-lg font-semibold text-[var(--color-text-heading)]"
             >
-              <Calendar className="h-5 w-5 text-[var(--color-lilac-strong)]" aria-hidden />
+              <Calendar
+                className="h-5 w-5 text-[var(--color-lilac-strong)]"
+                aria-hidden
+              />
               Your trip
             </h3>
-            <p className="mt-1 text-sm text-[var(--color-text-muted)]">{destLabel}</p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+              {destLabel}
+            </p>
           </div>
           {tripInfo && hasDates && (
             <button
@@ -271,10 +281,7 @@ export default function DashboardHome({
                 id="dash-ai-tips-heading"
                 className="flex items-center gap-2 font-display text-lg font-semibold text-[var(--color-text-heading)]"
               >
-                <Lightbulb
-                  className="h-5 w-5 text-amber-500"
-                  aria-hidden
-                />
+                <Lightbulb className="h-5 w-5 text-amber-500" aria-hidden />
                 Tips for your trip
               </h3>
               <p className="mt-1 text-sm text-[var(--color-text-muted)]">
@@ -302,12 +309,17 @@ export default function DashboardHome({
           {tipsLoading &&
           (aiTips === undefined || aiTips === null || !aiTips?.tips?.length) ? (
             <div className="flex flex-col items-center justify-center gap-2 py-8 text-[var(--color-text-muted)]">
-              <Loader2 className="h-8 w-8 animate-spin text-[var(--color-lilac-strong)]" aria-hidden />
+              <Loader2
+                className="h-8 w-8 animate-spin text-[var(--color-lilac-strong)]"
+                aria-hidden
+              />
               <p className="m-0 text-sm">Cooking up tips for your party…</p>
             </div>
           ) : null}
 
-          {!tipsLoading && aiTips === null && typeof onRetryTips === 'function' ? (
+          {!tipsLoading &&
+          aiTips === null &&
+          typeof onRetryTips === 'function' ? (
             <div className="rounded-[var(--radius-input)] bg-[var(--color-lilac-light)]/60 px-4 py-3 text-sm text-[var(--color-text-body)]">
               <p className="m-0">
                 We couldn&apos;t load tips yet. Check your connection or try
@@ -351,10 +363,12 @@ export default function DashboardHome({
             </ul>
           ) : null}
 
-          {aiTips?.tips?.length > 0 && visibleAiTips.length === 0 && !tipsLoading ? (
+          {aiTips?.tips?.length > 0 &&
+          visibleAiTips.length === 0 &&
+          !tipsLoading ? (
             <p className="m-0 text-sm text-[var(--color-text-muted)]">
-              You&apos;ve dismissed these tips. Tap &quot;Get more tips&quot; for
-              a fresh set.
+              You&apos;ve dismissed these tips. Tap &quot;Get more tips&quot;
+              for a fresh set.
             </p>
           ) : null}
         </section>
@@ -370,7 +384,10 @@ export default function DashboardHome({
             id="dash-waits-heading"
             className="flex items-center gap-2 font-display text-lg font-semibold text-[var(--color-text-heading)]"
           >
-            <Clock className="h-5 w-5 text-[var(--color-sky-strong)]" aria-hidden />
+            <Clock
+              className="h-5 w-5 text-[var(--color-sky-strong)]"
+              aria-hidden
+            />
             Today&apos;s shortest waits
           </h3>
           <button
@@ -387,10 +404,14 @@ export default function DashboardHome({
           </button>
         </div>
         {waitTimesError && (
-          <p className="mb-2 text-sm text-[var(--color-error-text)]">{waitTimesError}</p>
+          <p className="mb-2 text-sm text-[var(--color-error-text)]">
+            {waitTimesError}
+          </p>
         )}
         {waitTimesLoading && !shortest.length ? (
-          <p className="text-sm text-[var(--color-text-muted)]">Loading waits…</p>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Loading waits…
+          </p>
         ) : shortest.length === 0 ? (
           <p className="text-sm text-[var(--color-text-muted)]">
             No standby waits available right now. Try refresh in a moment.
@@ -403,7 +424,9 @@ export default function DashboardHome({
                 className="flex items-center justify-between gap-2 rounded-[var(--radius-input)] border border-[var(--color-border)]/60 bg-white/90 px-3 py-2 text-sm"
               >
                 <span className="min-w-0 font-medium text-[var(--color-text-body)]">
-                  <span className="text-[var(--color-text-muted)]">{i + 1}.</span>{' '}
+                  <span className="text-[var(--color-text-muted)]">
+                    {i + 1}.
+                  </span>{' '}
                   {row.name}
                 </span>
                 <span className="shrink-0 text-xs text-[var(--color-text-muted)]">
@@ -433,7 +456,10 @@ export default function DashboardHome({
           id="dash-itin-heading"
           className="flex items-center gap-2 font-display text-lg font-semibold text-[var(--color-text-heading)]"
         >
-          <MapPin className="h-5 w-5 text-[var(--color-lilac-strong)]" aria-hidden />
+          <MapPin
+            className="h-5 w-5 text-[var(--color-lilac-strong)]"
+            aria-hidden
+          />
           Your itinerary
         </h3>
         <p className="mt-1 text-sm text-[var(--color-text-muted)]">
@@ -442,7 +468,10 @@ export default function DashboardHome({
         <div className="relative mt-4 min-h-[5.5rem] rounded-[var(--radius-input)] border border-dashed border-[var(--color-border-strong)] bg-[var(--color-bg-page)]/80 p-3">
           {!user?.is_pro && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-[var(--radius-input)] bg-[var(--color-bg-surface)]/85 backdrop-blur-[2px]">
-              <Lock className="h-6 w-6 text-[var(--color-lilac-strong)]" aria-hidden />
+              <Lock
+                className="h-6 w-6 text-[var(--color-lilac-strong)]"
+                aria-hidden
+              />
               <span className="text-xs font-semibold text-[var(--color-text-heading)]">
                 Pro unlocks itinerary preview & PDF
               </span>
@@ -450,14 +479,20 @@ export default function DashboardHome({
           )}
           <ul className="m-0 space-y-1.5 p-0 text-sm text-[var(--color-text-muted)]">
             <li className="flex gap-2">
-              <span className="font-medium text-[var(--color-text-heading)]">Day 1</span>
+              <span className="font-medium text-[var(--color-text-heading)]">
+                Day 1
+              </span>
               <span>Magic Kingdom — arrival & must-dos</span>
             </li>
             <li className="flex gap-2">
-              <span className="font-medium text-[var(--color-text-heading)]">Day 2</span>
+              <span className="font-medium text-[var(--color-text-heading)]">
+                Day 2
+              </span>
               <span>EPCOT & dining — personalized to your trip</span>
             </li>
-            <li className="italic opacity-80">…built from your guide conversations</li>
+            <li className="italic opacity-80">
+              …built from your guide conversations
+            </li>
           </ul>
         </div>
         <button
@@ -536,7 +571,10 @@ export default function DashboardHome({
             Jump into chat—your trip details shape every answer.
           </p>
         </div>
-        <Sparkles className="h-5 w-5 shrink-0 text-[var(--color-pink-strong)]" aria-hidden />
+        <Sparkles
+          className="h-5 w-5 shrink-0 text-[var(--color-pink-strong)]"
+          aria-hidden
+        />
       </button>
 
       {/* Tips for first-timers */}
@@ -558,7 +596,11 @@ export default function DashboardHome({
             {FIRST_TIMER_TIPS[tipIndex].body}
           </p>
         </div>
-        <div className="mt-4 flex justify-center gap-1.5" role="tablist" aria-label="Tip carousel">
+        <div
+          className="mt-4 flex justify-center gap-1.5"
+          role="tablist"
+          aria-label="Tip carousel"
+        >
           {FIRST_TIMER_TIPS.map((_, i) => (
             <button
               key={i}

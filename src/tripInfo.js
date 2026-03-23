@@ -4,7 +4,11 @@
  * Matches backend TripInfo; use for API payloads and shared option constants.
  */
 export function toTripInfoPayload(trip) {
-  const dietaryCombined = [trip.dietaryRestrictions, trip.mobilityNotes, trip.parkScheduleNotes]
+  const dietaryCombined = [
+    trip.dietaryRestrictions,
+    trip.mobilityNotes,
+    trip.parkScheduleNotes,
+  ]
     .map((s) => (typeof s === 'string' ? s.trim() : ''))
     .filter(Boolean)
     .join(' | ')

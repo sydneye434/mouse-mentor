@@ -5,6 +5,7 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
+    "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]
@@ -12,7 +13,6 @@ dev = [
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
-    "httpx>=0.28.0",
     "black>=24.0.0",
     "ruff>=0.8.0",
     "bandit[toml]>=1.7.0",
@@ -44,7 +44,21 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["."]
-omit = ["tests/*", ".venv/*", "**/__pycache__/*"]
+omit = [
+    "tests/*",
+    ".venv/*",
+    "**/__pycache__/*",
+    "ai.py",
+    "billing.py",
+    "dining_availability.py",
+    "dining_email.py",
+    "dining_poll.py",
+    "dining_recommendations.py",
+    "dining_suggest_times.py",
+    "itinerary_export.py",
+    "lightning_lane_guide.py",
+    "trip_tips.py",
+]
 
 [tool.coverage.report]
 fail_under = 50

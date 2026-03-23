@@ -13,11 +13,11 @@ export function tripFromApi(data) {
   const derivedAdults =
     pa != null || pt != null
       ? (pa ?? 0) + (pt ?? 0)
-      : data.number_of_adults ?? 1
+      : (data.number_of_adults ?? 1)
   const derivedChildren =
     u7 != null || c712 != null
       ? (u7 ?? 0) + (c712 ?? 0)
-      : data.number_of_children ?? 0
+      : (data.number_of_children ?? 0)
   return {
     destination: data.destination,
     arrivalDate: data.arrival_date ?? '',

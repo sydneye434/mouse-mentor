@@ -452,6 +452,56 @@ def test_public_trip_not_found():
     assert response.status_code == 404
 
 
+def test_dining_alerts_requires_auth():
+    r = client.get("/dining/alerts")
+    assert r.status_code == 401
+    r2 = client.post(
+        "/dining/alerts",
+        json={
+            "restaurant": "Test",
+            "restaurant_slug": "cinderellas-royal-table",
+            "date": "2026-06-01",
+            "party_size": 2,
+            "time_windows": ["12:00 PM – 1:00 PM"],
+        },
+    )
+    assert r2.status_code == 401
+
+
+@patch(
+    "dining_suggest_times.suggest_dining_times",
+    return_value=[
+        {
+            "time_window": "12:00 PM – 1:00 PM",
+            "reason": "Test reason here.",
+            "confidence": "high",
+        },
+        {
+            "time_window": "6:00 PM – 7:00 PM",
+            "reason": "Dinner window.",
+            "confidence": "medium",
+        },
+    ],
+)
+def test_dining_suggest_times(mock_suggest):
+    response = client.post(
+        "/dining/suggest-times",
+        json={
+            "restaurant": "Cinderella's Royal Table",
+            "date": "2026-06-01",
+            "trip_info": {
+                "destination": "disney-world",
+                "number_of_adults": 2,
+            },
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "suggestions" in data
+    assert len(data["suggestions"]) == 2
+    mock_suggest.assert_called_once()
+
+
 def test_tips_generate_requires_auth():
     response = client.post(
         "/tips/generate",

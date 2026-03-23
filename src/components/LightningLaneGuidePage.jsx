@@ -80,8 +80,8 @@ export default function LightningLaneGuidePage({
           Lightning Lane Guide
         </h1>
         <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          Multi Pass, Single Pass, and Individual Lightning Lane—explained in plain
-          language, then tailored to your group and thrill tolerance.
+          Multi Pass, Single Pass, and Individual Lightning Lane—explained in
+          plain language, then tailored to your group and thrill tolerance.
         </p>
       </header>
 
@@ -92,7 +92,10 @@ export default function LightningLaneGuidePage({
             your guide.
           </p>
           <p className="mt-3 text-sm text-[var(--color-text-muted)]">
-            <Link to="/" className="font-semibold text-[var(--color-lilac-strong)]">
+            <Link
+              to="/"
+              className="font-semibold text-[var(--color-lilac-strong)]"
+            >
               Return home
             </Link>{' '}
             and tap <strong>Plan your trip</strong>.
@@ -100,20 +103,24 @@ export default function LightningLaneGuidePage({
         </div>
       )}
 
-      {tripInfo?.arrivalDate && tripInfo?.departureDate && !guide && !loading && !error && (
-        <div className="mb-6 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-6 text-center">
-          <p className="m-0 text-sm text-[var(--color-text-muted)]">
-            Ready to generate your personalized Lightning Lane plan.
-          </p>
-          <button
-            type="button"
-            onClick={onRequestGenerate}
-            className="mt-4 rounded-[var(--radius-pill)] bg-[var(--color-pink-mid)] px-6 py-2.5 text-sm font-semibold text-[var(--color-text-on-primary)] hover:bg-[var(--color-pink-strong)]"
-          >
-            Generate guide
-          </button>
-        </div>
-      )}
+      {tripInfo?.arrivalDate &&
+        tripInfo?.departureDate &&
+        !guide &&
+        !loading &&
+        !error && (
+          <div className="mb-6 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-6 text-center">
+            <p className="m-0 text-sm text-[var(--color-text-muted)]">
+              Ready to generate your personalized Lightning Lane plan.
+            </p>
+            <button
+              type="button"
+              onClick={onRequestGenerate}
+              className="mt-4 rounded-[var(--radius-pill)] bg-[var(--color-pink-mid)] px-6 py-2.5 text-sm font-semibold text-[var(--color-text-on-primary)] hover:bg-[var(--color-pink-strong)]"
+            >
+              Generate guide
+            </button>
+          </div>
+        )}
 
       {loading && (
         <div className="flex min-h-[10rem] flex-col items-center justify-center gap-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-8">
@@ -146,23 +153,41 @@ export default function LightningLaneGuidePage({
               id="ll-explainer-heading"
               className="mb-4 flex items-center gap-2 font-display text-xl font-semibold text-[var(--color-text-heading)]"
             >
-              <BookOpen className="h-6 w-6 text-[var(--color-lilac-strong)]" aria-hidden />
+              <BookOpen
+                className="h-6 w-6 text-[var(--color-lilac-strong)]"
+                aria-hidden
+              />
               How the systems work
             </h2>
             <div className="grid gap-4 md:grid-cols-1">
               <ExplainerCard
-                title={ex.lightning_lane_multi_pass?.title ?? 'Lightning Lane Multi Pass'}
-                plainLanguage={ex.lightning_lane_multi_pass?.plain_language ?? ''}
+                title={
+                  ex.lightning_lane_multi_pass?.title ??
+                  'Lightning Lane Multi Pass'
+                }
+                plainLanguage={
+                  ex.lightning_lane_multi_pass?.plain_language ?? ''
+                }
                 bestFor={ex.lightning_lane_multi_pass?.best_for}
               />
               <ExplainerCard
-                title={ex.lightning_lane_single_pass?.title ?? 'Lightning Lane Single Pass'}
-                plainLanguage={ex.lightning_lane_single_pass?.plain_language ?? ''}
+                title={
+                  ex.lightning_lane_single_pass?.title ??
+                  'Lightning Lane Single Pass'
+                }
+                plainLanguage={
+                  ex.lightning_lane_single_pass?.plain_language ?? ''
+                }
                 bestFor={ex.lightning_lane_single_pass?.best_for}
               />
               <ExplainerCard
-                title={ex.individual_lightning_lane?.title ?? 'Individual Lightning Lane'}
-                plainLanguage={ex.individual_lightning_lane?.plain_language ?? ''}
+                title={
+                  ex.individual_lightning_lane?.title ??
+                  'Individual Lightning Lane'
+                }
+                plainLanguage={
+                  ex.individual_lightning_lane?.plain_language ?? ''
+                }
                 bestFor={ex.individual_lightning_lane?.best_for}
               />
             </div>
@@ -185,7 +210,10 @@ export default function LightningLaneGuidePage({
                 id="ll-party-heading"
                 className="flex items-center gap-2 font-display text-lg font-semibold text-[var(--color-text-heading)]"
               >
-                <Sparkles className="h-5 w-5 text-[var(--color-lilac-strong)]" aria-hidden />
+                <Sparkles
+                  className="h-5 w-5 text-[var(--color-lilac-strong)]"
+                  aria-hidden
+                />
                 For your party
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-body)]">
@@ -199,7 +227,10 @@ export default function LightningLaneGuidePage({
               id="ll-days-heading"
               className="mb-4 flex items-center gap-2 font-display text-xl font-semibold text-[var(--color-text-heading)]"
             >
-              <Sun className="h-6 w-6 text-[var(--color-lilac-strong)]" aria-hidden />
+              <Sun
+                className="h-6 w-6 text-[var(--color-lilac-strong)]"
+                aria-hidden
+              />
               By day: what to book & when to wake up
             </h2>
             <ol className="m-0 list-none space-y-8 p-0">
@@ -265,7 +296,8 @@ export default function LightningLaneGuidePage({
                               {row.attraction}
                             </span>
                             <span className="rounded-full bg-[var(--color-lilac-light)] px-2 py-0.5 text-xs font-medium text-[var(--color-lilac-strong)]">
-                              {row.use_ll_type?.replace(/_/g, ' ') ?? 'multi pass'}
+                              {row.use_ll_type?.replace(/_/g, ' ') ??
+                                'multi pass'}
                             </span>
                           </div>
                           {row.why_this_order ? (

@@ -38,8 +38,7 @@ function labelFor(value, options) {
 }
 
 function parkLabels(parks, destination) {
-  const opts =
-    destination === 'disneyland' ? DL_PARK_OPTIONS : WDW_PARK_OPTIONS
+  const opts = destination === 'disneyland' ? DL_PARK_OPTIONS : WDW_PARK_OPTIONS
   const map = Object.fromEntries(opts.map((o) => [o.value, o.label]))
   return (parks || []).map((p) => map[p] ?? p).join(', ')
 }

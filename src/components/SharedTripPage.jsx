@@ -33,9 +33,7 @@ export default function SharedTripPage() {
         )
         if (!res.ok) {
           if (res.status === 404) {
-            setError(
-              'This trip link is invalid or no longer available.'
-            )
+            setError('This trip link is invalid or no longer available.')
           } else {
             setError('Could not load this trip.')
           }

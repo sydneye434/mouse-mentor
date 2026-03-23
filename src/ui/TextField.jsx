@@ -2,7 +2,11 @@
  * Text, email, password, date, number — styled text field (Tailwind).
  */
 import { useId } from 'react'
-import { fieldInputClass, fieldLabelClass, fieldGroupClass } from './fieldStyles.js'
+import {
+  fieldInputClass,
+  fieldLabelClass,
+  fieldGroupClass,
+} from './fieldStyles.js'
 
 export default function TextField({
   label,

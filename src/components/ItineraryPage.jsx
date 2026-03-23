@@ -20,17 +20,20 @@ const PERIOD_META = {
   morning: {
     label: 'Morning',
     Icon: Sun,
-    className: 'bg-amber-100/90 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100',
+    className:
+      'bg-amber-100/90 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100',
   },
   afternoon: {
     label: 'Afternoon',
     Icon: Sunset,
-    className: 'bg-sky-100/90 text-sky-900 dark:bg-sky-900/40 dark:text-sky-100',
+    className:
+      'bg-sky-100/90 text-sky-900 dark:bg-sky-900/40 dark:text-sky-100',
   },
   evening: {
     label: 'Evening',
     Icon: Moon,
-    className: 'bg-indigo-100/90 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-100',
+    className:
+      'bg-indigo-100/90 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-100',
   },
 }
 
@@ -193,8 +196,8 @@ export default function ItineraryPage({
                               </p>
                               <div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--color-text-muted)]">
                                 <span className="inline-flex items-center gap-1">
-                                  <Clock className="h-3.5 w-3.5" aria-hidden />
-                                  ~{item.estimated_wait_minutes ?? '—'} min wait
+                                  <Clock className="h-3.5 w-3.5" aria-hidden />~
+                                  {item.estimated_wait_minutes ?? '—'} min wait
                                 </span>
                               </div>
                               {item.walking_tip ? (

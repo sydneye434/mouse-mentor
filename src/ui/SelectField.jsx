@@ -2,7 +2,11 @@
  * Native select with label (Tailwind).
  */
 import { useId } from 'react'
-import { fieldInputClass, fieldLabelClass, fieldGroupClass } from './fieldStyles.js'
+import {
+  fieldInputClass,
+  fieldLabelClass,
+  fieldGroupClass,
+} from './fieldStyles.js'
 
 export default function SelectField({
   label,
